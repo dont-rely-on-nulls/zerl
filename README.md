@@ -1,4 +1,4 @@
-* Zerl: Making Erlang + Zig communication EZ
+# Zerl: Making Erlang + Zig communication EZ
 
 *WORK IN PROGRESS*
 
