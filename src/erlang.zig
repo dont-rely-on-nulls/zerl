@@ -22,9 +22,8 @@ pub const Node = struct {
     c_node: ei.ei_cnode,
     fd: i32,
     node_name: [name_length:0]u8,
-    cookie: [:0]const u8 = "cookie",
 
-    pub fn init() !Node {
+    pub fn init(cookie: [:0]const u8) !Node {
         var tempNode: Node = .{
             .c_node = undefined,
             .fd = undefined,
@@ -41,7 +40,7 @@ pub const Node = struct {
         const check = ei.ei_connect_init(
             &tempNode.c_node,
             &tempNode.node_name,
-            tempNode.cookie.ptr,
+            cookie.ptr,
             @truncate(creation_u),
         );
         try validate(error.ei_connect_init_failed, check);
