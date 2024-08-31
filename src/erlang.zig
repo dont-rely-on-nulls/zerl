@@ -64,12 +64,12 @@ pub const Node = struct {
         if (Destination == ei.erlang_pid) {
             try validate(
                 error.reg_send_failed,
-                ei.ei_send(ec.fd, &destination, buf.buff, buf.index),
+                ei.ei_send(ec.fd, @constCast(&destination), buf.buff, buf.index),
             );
         } else if (Destination == *ei.erlang_pid or Destination == *const ei.erlang_pid) {
             try validate(
                 error.reg_send_failed,
-                ei.ei_send(ec.fd, destination, buf.buff, buf.index),
+                ei.ei_send(ec.fd, @constCast(destination), buf.buff, buf.index),
             );
         } else {
             const destination_name: [*:0]u8 = @constCast(destination);
