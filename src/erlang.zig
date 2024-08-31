@@ -74,7 +74,7 @@ pub const Node = struct {
         } else {
             const destination_name: [*:0]u8 = @constCast(destination);
             try validate(
-                error.reg_send_failed_to_master,
+                error.reg_send_failed,
                 ei.ei_reg_send(&ec.c_node, ec.fd, destination_name, buf.buff, buf.index),
             );
         }
