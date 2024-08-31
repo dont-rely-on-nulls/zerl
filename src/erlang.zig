@@ -53,17 +53,31 @@ pub const Node = struct {
         return receiver.run(T, allocator, ec);
     }
 
-    pub fn send(ec: *Node, data: anytype) Send_Error!void {
+    pub fn send(ec: *Node, destination: anytype, data: anytype) Send_Error!void {
         var buf: ei.ei_x_buff = undefined;
         // TODO: get rid of hidden allocation
         try validate(error.new_with_version, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
         try sender.send_payload(&buf, data);
-        try validate(
-            error.reg_send_failed,
-            ei.ei_reg_send(&ec.c_node, ec.fd, @constCast(process_name), buf.buff, buf.index),
-        );
+        const Destination = @TypeOf(destination);
+        if (Destination == ei.erlang_pid) {
+            try validate(
+                error.reg_send_failed,
+                ei.ei_send(ec.fd, &destination, buf.buff, buf.index),
+            );
+        } else if (Destination == *ei.erlang_pid or Destination == *const ei.erlang_pid) {
+            try validate(
+                error.reg_send_failed,
+                ei.ei_send(ec.fd, destination, buf.buff, buf.index),
+            );
+        } else {
+            const destination_name: [*:0]u8 = @constCast(destination);
+            try validate(
+                error.reg_send_failed_to_master,
+                ei.ei_reg_send(&ec.c_node, ec.fd, destination_name, buf.buff, buf.index),
+            );
+        }
     }
 
     pub fn self(ec: *Node) !*ei.erlang_pid {
