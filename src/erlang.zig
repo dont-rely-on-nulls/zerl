@@ -6,10 +6,6 @@ const std = @import("std");
 pub const receiver = @import("receiver.zig");
 pub const sender = @import("sender.zig");
 
-// TODO: move these elsewhere, maybe make them into parameters
-pub const process_name = "server";
-pub const server_name = process_name ++ "@localhost";
-
 pub const Send_Error = sender.Error || error{
     // TODO: rid the world of these terrible names
     new_with_version,
@@ -93,7 +89,7 @@ pub fn validate(error_tag: anytype, result_value: c_int) !void {
     }
 }
 
-pub fn establish_connection(ec: *Node, ip: []const u8) !void {
+pub fn establish_connection(ec: *Node, process_name: []const u8, ip: []const u8) !void {
     var buffer: [Node.max_buffer_size:0]u8 = .{0} ** Node.max_buffer_size;
     std.mem.copyForwards(u8, &buffer, process_name);
     buffer[process_name.len] = '@';
