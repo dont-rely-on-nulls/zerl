@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn add_erlang_paths(b: *std.Build) !void {
+pub fn add_erlang_paths(b: *std.Build) !void {
     const cwd = std.fs.cwd();
     if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
         var it = std.mem.tokenizeScalar(u8, lib_path, ':');
