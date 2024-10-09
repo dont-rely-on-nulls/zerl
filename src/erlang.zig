@@ -3,7 +3,7 @@ pub const ei = @cImport({
 });
 
 const std = @import("std");
-pub const receiver = @import("receiver.zig");
+pub const Receiver = @import("receiver.zig");
 pub const sender = @import("sender.zig");
 
 // TODO: move these elsewhere, maybe make them into parameters
@@ -23,11 +23,35 @@ pub const Node = struct {
     cookie: [:0]const u8 = "cookie",
 
     pub fn receive(ec: *Node, comptime T: type, allocator: std.mem.Allocator) !T {
-        return receiver.run(T, allocator, ec);
+        var msg: ei.erlang_msg = undefined;
+        var buf: ei.ei_x_buff = undefined;
+        var index: i32 = 0;
+
+        // FIXME: hidden allocation
+        try validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+        defer _ = ei.ei_x_free(&buf);
+
+        while (true) {
+            const got: i32 = ei.ei_xreceive_msg(ec.fd, &msg, &buf);
+            if (got == ei.ERL_TICK)
+                continue;
+            if (got == ei.ERL_ERROR) {
+                return error.got_error_receiving_message;
+            }
+            break;
+        }
+
+        try validate(error.decoding_version, ei.ei_decode_version(buf.buff, &index, null));
+        return (Receiver{
+            .buf = &buf,
+            .index = &index,
+            .allocator = allocator,
+        }).receive(T);
     }
 
     pub fn send(ec: *Node, data: anytype) Send_Error!void {
         var buf: ei.ei_x_buff = undefined;
+
         // TODO: get rid of hidden allocation
         try validate(error.new_with_version, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);

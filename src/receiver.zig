@@ -6,7 +6,6 @@ const erl = @import("erlang.zig");
 
 buf: *ei.ei_x_buff,
 index: *i32,
-ec: *erl.Node,
 allocator: std.mem.Allocator,
 
 // TODO: Try to make the simplest possible example using something like this to report to zig repo
@@ -35,33 +34,6 @@ fn receive_atom(self: @This()) ![:0]const u8 {
     return receive_atom_string(self, ei.ei_decode_atom);
 }
 
-pub fn run(comptime T: type, allocator: std.mem.Allocator, ec: *erl.Node) !T {
-    var msg: ei.erlang_msg = undefined;
-    var buf: ei.ei_x_buff = undefined;
-    var index: i32 = 0;
-
-    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
-    defer _ = ei.ei_x_free(&buf);
-
-    while (true) {
-        const got: i32 = ei.ei_xreceive_msg(ec.fd, &msg, &buf);
-        if (got == ei.ERL_TICK)
-            continue;
-        if (got == ei.ERL_ERROR) {
-            return error.got_error_receiving_message;
-        }
-        break;
-    }
-
-    try erl.validate(error.decoding_version, ei.ei_decode_version(buf.buff, &index, null));
-    return internal_receive_message(@This(){
-        .buf = &buf,
-        .index = &index,
-        .ec = ec,
-        .allocator = allocator,
-    }, T);
-}
-
 inline fn receive_struct(self: @This(), comptime T: type, comptime item: std.builtin.Type.Struct) !T {
     var value: T = undefined;
     var size: i32 = 0;
@@ -72,7 +44,7 @@ inline fn receive_struct(self: @This(), comptime T: type, comptime item: std.bui
         );
         if (item.fields.len != size) return error.wrong_tuple_size;
         inline for (&value) |*elem| {
-            elem.* = try internal_receive_message(self, @TypeOf(elem.*));
+            elem.* = try receive(self, @TypeOf(elem.*));
         }
     } else {
         try erl.validate(
@@ -91,9 +63,9 @@ inline fn receive_struct(self: @This(), comptime T: type, comptime item: std.bui
                     const current_field = &@field(value, field.name);
                     const field_type = @typeInfo(field.type);
                     if (field_type == .Optional) {
-                        current_field.* = try internal_receive_message(self, field_type.Optional.child);
+                        current_field.* = try receive(self, field_type.Optional.child);
                     } else {
-                        current_field.* = try internal_receive_message(self, field.type);
+                        current_field.* = try receive(self, field.type);
                     }
                     present_fields[idx] = true;
                     counter += 1;
@@ -194,7 +166,7 @@ inline fn receive_union(self: @This(), comptime T: type, comptime item: std.buil
                         field.name,
                         @tagName(name),
                     )) {
-                        const tuple_value = try internal_receive_message(self, field.type);
+                        const tuple_value = try receive(self, field.type);
                         value = @unionInit(T, field.name, tuple_value);
                         return value;
                     }
@@ -233,7 +205,7 @@ inline fn receive_pointer(self: @This(), comptime T: type, comptime item: std.bu
         errdefer self.allocator.free(slice_buffer);
         // TODO: We should deallocate the children
         for (slice_buffer) |*elem| {
-            elem.* = try internal_receive_message(self, item.child);
+            elem.* = try receive(self, item.child);
         }
         try erl.validate(
             error.decoding_list_in_pointer_2,
@@ -256,7 +228,7 @@ inline fn receive_array(self: @This(), comptime T: type, comptime item: std.buil
     if (item.len != size) return error.wrong_array_size;
     // TODO: We should deallocate the children
     for (0..value.len) |idx| {
-        value[idx] = try internal_receive_message(self, item.child);
+        value[idx] = try receive(self, item.child);
     }
     try erl.validate(
         error.decoding_list_in_array_2,
@@ -275,7 +247,7 @@ inline fn receive_bool(self: @This()) !bool {
     return bool_value != 0;
 }
 
-fn internal_receive_message(self: @This(), comptime T: type) !T {
+pub fn receive(self: @This(), comptime T: type) !T {
     var value: T = undefined;
     if (T == [:0]const u8) {
         value = try receive_string(self);
