@@ -32,7 +32,7 @@ pub const Node = struct {
         try validate(error.new_with_version, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
-        try sender.send_payload(&buf, data);
+        try sender.serialize(&buf, data);
         try validate(
             error.reg_send_failed,
             ei.ei_reg_send(&ec.c_node, ec.fd, @constCast(process_name), buf.buff, buf.index),
