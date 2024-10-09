@@ -6,11 +6,17 @@ pub fn build(b: *std.Build) void {
 
     const root_file = b.path("src/erlang.zig");
 
-    _ = b.addModule("zerl", .{
+    const zerl = b.addModule("zerl", .{
         .root_source_file = root_file,
         .target = target,
         .optimize = optimize,
         .link_libc = true,
+    });
+
+    // TODO: package erlang's C libs
+    zerl.linkSystemLibrary("ei", .{
+        .needed = true,
+        .preferred_link_mode = .static,
     });
 
     const lib_unit_tests = b.addTest(.{
