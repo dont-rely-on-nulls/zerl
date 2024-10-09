@@ -16,7 +16,7 @@ pub const Error = error{
     could_not_encode_list_tail,
 };
 
-fn send_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
+fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
     const info = @typeInfo(Data).Pointer;
     switch (info.size) {
@@ -45,7 +45,7 @@ fn send_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 .ComptimeInt,
                 .ComptimeFloat,
                 => try serialize(buf, data.*),
-                .Array => |array_info| try send_pointer(
+                .Array => |array_info| try write_pointer(
                     buf,
                     @as([]const array_info.child, data),
                 ),
@@ -200,7 +200,7 @@ pub fn serialize(buf: *ei.ei_x_buff, data: anytype) Error!void {
             );
         },
         .Array, .Struct, .Union => serialize(buf, &data),
-        .Pointer => send_pointer(buf, data),
+        .Pointer => write_pointer(buf, data),
         .NoReturn => unreachable,
         else => @compileError("unsupported type"),
     };
