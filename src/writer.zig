@@ -16,7 +16,7 @@ pub const Error = error{
     could_not_encode_list_tail,
 };
 
-fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
+fn pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
     const info = @typeInfo(Data).Pointer;
     switch (info.size) {
@@ -26,7 +26,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 error.could_not_encode_list_head,
                 ei.ei_x_encode_list_header(buf, @bitCast(data.len)),
             );
-            for (data) |item| try serialize(buf, item);
+            for (data) |item| try any(buf, item);
             try erl.validate(
                 error.could_not_encode_list_tail,
                 ei.ei_x_encode_list_header(buf, 0),
@@ -44,8 +44,8 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 .EnumLiteral,
                 .ComptimeInt,
                 .ComptimeFloat,
-                => try serialize(buf, data.*),
-                .Array => |array_info| try write_pointer(
+                => try any(buf, data.*),
+                .Array => |array_info| try pointer(
                     buf,
                     @as([]const array_info.child, data),
                 ),
@@ -71,8 +71,8 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                                         ei.ei_x_encode_tuple_header(buf, 2),
                                     );
                                 }
-                                try serialize(buf, tag);
-                                if (send_tuple) try serialize(buf, @field(data, @tagName(tag)));
+                                try any(buf, tag);
+                                if (send_tuple) try any(buf, @field(data, @tagName(tag)));
                             }
                         }
                     },
@@ -85,7 +85,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     // TODO: check if we can use an inline for instead
                     comptime var i = 0;
                     inline while (i < struct_info.fields.len) : (i += 1) {
-                        try serialize(buf, @field(
+                        try any(buf, @field(
                             data,
                             std.fmt.comptimePrint("{}", .{i}),
                         ));
@@ -126,7 +126,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                                     @intCast(field.name.len),
                                 ),
                             );
-                            try serialize(buf, payload);
+                            try any(buf, payload);
                         }
                     }
                 },
@@ -137,7 +137,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     }
 }
 
-pub fn serialize(buf: *ei.ei_x_buff, data: anytype) Error!void {
+pub fn any(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
 
     return if (Data == *const ei.erlang_pid or
@@ -149,7 +149,7 @@ pub fn serialize(buf: *ei.ei_x_buff, data: anytype) Error!void {
             ei.ei_x_encode_pid(buf, data),
         )
     else if (Data == ei.erlang_pid)
-        serialize(buf, &data)
+        any(buf, &data)
     else if (Data == []const u8 or
         Data == [:0]const u8 or
         Data == []u8 or
@@ -166,12 +166,12 @@ pub fn serialize(buf: *ei.ei_x_buff, data: anytype) Error!void {
             ei.ei_x_encode_boolean(buf, @intFromBool(data)),
         ),
         // TODO: make inline fn to handle this properly
-        .ComptimeInt => serialize(
+        .ComptimeInt => any(
             buf,
             // not sure if this conditional actually compiles
             @as(if (0 <= data) u64 else i64, data),
         ),
-        .ComptimeFloat => serialize(buf, @as(f64, data)),
+        .ComptimeFloat => any(buf, @as(f64, data)),
         .Int => |info| if (65 <= info.bits)
             @compileError("unsupported integer size")
         else if (info.signedness == .signed)
@@ -199,8 +199,8 @@ pub fn serialize(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ei.ei_x_encode_atom_len(buf, name.ptr, @intCast(name.len)),
             );
         },
-        .Array, .Struct, .Union => serialize(buf, &data),
-        .Pointer => write_pointer(buf, data),
+        .Array, .Struct, .Union => any(buf, &data),
+        .Pointer => pointer(buf, data),
         .NoReturn => unreachable,
         else => @compileError("unsupported type"),
     };

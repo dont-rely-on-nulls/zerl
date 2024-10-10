@@ -3,10 +3,10 @@ pub const ei = @cImport({
 });
 
 const std = @import("std");
-pub const Receiver = @import("receiver.zig");
-pub const sender = @import("sender.zig");
+pub const Reader = @import("Reader.zig");
+pub const writer = @import("writer.zig");
 
-pub const Send_Error = sender.Error || error{
+pub const Send_Error = writer.Error || error{
     // TODO: rid the world of these terrible names
     new_with_version,
     reg_send_failed,
@@ -64,11 +64,11 @@ pub const Node = struct {
         }
 
         try validate(error.decoding_version, ei.ei_decode_version(buf.buff, &index, null));
-        return (Receiver{
+        return (Reader{
             .buf = &buf,
             .index = &index,
             .allocator = allocator,
-        }).receive(T);
+        }).parse(T);
     }
 
     pub fn send(ec: *Node, destination: anytype, data: anytype) Send_Error!void {
@@ -78,7 +78,7 @@ pub const Node = struct {
         try validate(error.new_with_version, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
-        try sender.serialize(&buf, data);
+        try writer.any(&buf, data);
         const Destination = @TypeOf(destination);
         if (Destination == ei.erlang_pid) {
             try validate(
