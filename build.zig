@@ -3,7 +3,16 @@ const std = @import("std");
 pub fn add_erlang_paths(b: *std.Build, root_paths: []const u8) !void {
     const cwd = std.fs.cwd();
     var it = std.mem.tokenizeScalar(u8, root_paths, ':');
-    while (it.next()) |dir_path| {
+    while (it.next()) |maybe_dir_path| {
+        if (std.mem.indexOf(u8, maybe_dir_path, "\x00")) |_| continue;
+        const name = std.fs.path.basename(maybe_dir_path);
+        if (std.mem.eql(u8, "sbin", name)) continue;
+
+        const dir_path = if (std.mem.eql(u8, "bin", name))
+            b.pathJoin(&.{ std.fs.path.dirname(maybe_dir_path).?, "lib" })
+        else
+            maybe_dir_path;
+
         var dir = cwd.openDir(dir_path, .{}) catch continue;
         defer dir.close();
 
@@ -32,6 +41,9 @@ pub fn build(b: *std.Build) !void {
 
     if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
         try add_erlang_paths(b, lib_path);
+    }
+    if (std.posix.getenv("PATH")) |path| {
+        try add_erlang_paths(b, path);
     }
 
     const root_file = b.path("src/erlang.zig");
