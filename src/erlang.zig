@@ -6,10 +6,9 @@ const std = @import("std");
 pub const Reader = @import("Reader.zig");
 pub const writer = @import("writer.zig");
 
-pub const Send_Error = writer.Error || error{
-    // TODO: rid the world of these terrible names
-    new_with_version,
-    reg_send_failed,
+pub const Send_Error = std.mem.Allocator.Error || writer.Error || error{
+    could_not_send_to_pid,
+    could_not_send_to_named_process,
 };
 
 pub const Node = struct {
@@ -75,25 +74,25 @@ pub const Node = struct {
         var buf: ei.ei_x_buff = undefined;
 
         // TODO: get rid of hidden allocation
-        try validate(error.new_with_version, ei.ei_x_new_with_version(&buf));
+        try validate(error.OutOfMemory, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
         try writer.any(&buf, data);
         const Destination = @TypeOf(destination);
         if (Destination == ei.erlang_pid) {
             try validate(
-                error.reg_send_failed,
+                error.could_not_send_to_pid,
                 ei.ei_send(ec.fd, @constCast(&destination), buf.buff, buf.index),
             );
         } else if (Destination == *ei.erlang_pid or Destination == *const ei.erlang_pid) {
             try validate(
-                error.reg_send_failed,
+                error.could_not_send_to_pid,
                 ei.ei_send(ec.fd, @constCast(destination), buf.buff, buf.index),
             );
         } else {
             const destination_name: [*:0]u8 = @constCast(destination);
             try validate(
-                error.reg_send_failed,
+                error.could_not_send_to_named_process,
                 ei.ei_reg_send(&ec.c_node, ec.fd, destination_name, buf.buff, buf.index),
             );
         }
