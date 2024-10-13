@@ -1,28 +1,26 @@
 const std = @import("std");
 
-pub fn add_erlang_paths(b: *std.Build) !void {
+pub fn add_erlang_paths(b: *std.Build, root_paths: []const u8) !void {
     const cwd = std.fs.cwd();
-    if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
-        var it = std.mem.tokenizeScalar(u8, lib_path, ':');
-        while (it.next()) |dir_path| {
-            var dir = cwd.openDir(dir_path, .{}) catch continue;
-            defer dir.close();
+    var it = std.mem.tokenizeScalar(u8, root_paths, ':');
+    while (it.next()) |dir_path| {
+        var dir = cwd.openDir(dir_path, .{}) catch continue;
+        defer dir.close();
 
-            var erlang = dir.openDir(
-                "erlang/lib",
-                .{ .iterate = true },
-            ) catch continue;
-            defer erlang.close();
+        var erlang = dir.openDir(
+            "erlang/lib",
+            .{ .iterate = true },
+        ) catch continue;
+        defer erlang.close();
 
-            var erlang_it = erlang.iterate();
-            while (try erlang_it.next()) |erlang_lib| {
-                if (erlang_lib.kind == .directory) {
-                    const prefix = try erlang.realpathAlloc(
-                        b.allocator,
-                        erlang_lib.name,
-                    );
-                    b.addSearchPrefix(prefix);
-                }
+        var erlang_it = erlang.iterate();
+        while (try erlang_it.next()) |erlang_lib| {
+            if (erlang_lib.kind == .directory) {
+                const prefix = try erlang.realpathAlloc(
+                    b.allocator,
+                    erlang_lib.name,
+                );
+                b.addSearchPrefix(prefix);
             }
         }
     }
@@ -32,7 +30,9 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    try add_erlang_paths(b);
+    if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
+        try add_erlang_paths(b, lib_path);
+    }
 
     const root_file = b.path("src/erlang.zig");
 
