@@ -3,17 +3,54 @@ pub const ei = @cImport({
 });
 const std = @import("std");
 const erl = @import("erlang.zig");
+const Reader = @This();
+
+pub const Error = std.mem.Allocator.Error || error{
+    decoding_atom_string_length,
+    message_is_not_atom_or_string,
+    decoding_atom,
+    decoding_tuple,
+    wrong_tuple_size,
+    decoding_map,
+    too_many_map_entries,
+    too_few_map_entries,
+    missing_field_in_struct,
+    decoding_signed_integer,
+    signed_out_of_bounds,
+    decoding_unsigned_integer,
+    unsigned_out_of_bounds,
+    invalid_tag_to_enum,
+    could_not_decode_enum,
+    decoding_get_type,
+    invalid_union_tag,
+    wrong_arity_for_tuple,
+    failed_to_receive_payload,
+    unknown_tuple_tag,
+    unsupported_pointer_type,
+    decoding_list_in_pointer_1,
+    decoding_list_in_pointer_2,
+    decoded_improper_list,
+    decoding_list_in_array_1,
+    wrong_array_size,
+    decoding_list_in_array_2,
+    decoding_boolean,
+    invalid_pid,
+};
 
 buf: *ei.ei_x_buff,
 index: *i32,
 allocator: std.mem.Allocator,
 
-// TODO: Try to make the simplest possible example using something like this to report to zig repo
-//pub fn receive_atom_string(deserializer: Deserializer, allocator: std.mem.Allocator, erlang_fun: fn ([*:0]const u8, *i32, [*:0]u8) callconv(.C) c_int) ![:0]const u8 {
-fn parse_atom_or_string(self: @This(), erlang_fun: *const fn ([*c]const u8, [*c]c_int, [*c]u8) callconv(.C) c_int) ![:0]const u8 {
+fn parse_atom_or_string(
+    self: Reader,
+    erlang_fun: *const fn ([*c]const u8, [*c]c_int, [*c]u8) callconv(.C) c_int,
+) ![:0]const u8 {
     var length: i32 = undefined;
     var ty: i32 = undefined;
-    try erl.validate(error.decoding_atom_string_length, ei.ei_get_type(self.buf.buff, self.index, &ty, &length));
+    try erl.validate(
+        error.decoding_atom_string_length,
+        ei.ei_get_type(self.buf.buff, self.index, &ty, &length),
+    );
 
     if (ty != ei.ERL_STRING_EXT and ty != ei.ERL_ATOM_EXT)
         return error.message_is_not_atom_or_string;
@@ -22,19 +59,23 @@ fn parse_atom_or_string(self: @This(), erlang_fun: *const fn ([*c]const u8, [*c]
 
     const buffer = try self.allocator.allocSentinel(u8, u_length, 0);
     errdefer self.allocator.free(buffer);
-    try erl.validate(error.decoding_atom, erlang_fun(self.buf.buff, self.index, buffer.ptr));
+    try erl.validate(
+        error.decoding_atom,
+        erlang_fun(self.buf.buff, self.index, buffer.ptr),
+    );
     return buffer;
 }
 
-fn parse_string(self: @This()) ![:0]const u8 {
+fn parse_string(self: Reader) ![:0]const u8 {
     return parse_atom_or_string(self, ei.ei_decode_string);
 }
 
-fn parse_atom(self: @This()) ![:0]const u8 {
+fn parse_atom(self: Reader) ![:0]const u8 {
     return parse_atom_or_string(self, ei.ei_decode_atom);
 }
 
-inline fn parse_struct(self: @This(), comptime T: type, comptime item: std.builtin.Type.Struct) !T {
+fn parse_struct(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Struct;
     var value: T = undefined;
     var size: i32 = 0;
     if (item.is_tuple) {
@@ -90,7 +131,8 @@ inline fn parse_struct(self: @This(), comptime T: type, comptime item: std.built
     return value;
 }
 
-inline fn parse_int(self: @This(), comptime T: type, comptime item: std.builtin.Type.Int) !T {
+fn parse_int(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Int;
     var value: T = undefined;
     if (item.signedness == .signed) {
         var aux: i64 = undefined;
@@ -111,7 +153,8 @@ inline fn parse_int(self: @This(), comptime T: type, comptime item: std.builtin.
     }
 }
 
-inline fn parse_enum(self: @This(), comptime T: type, comptime item: std.builtin.Type.Enum) !T {
+fn parse_enum(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Enum;
     const name = try parse_atom(self);
     errdefer self.allocator.free(name);
     inline for (item.fields) |field| {
@@ -122,7 +165,8 @@ inline fn parse_enum(self: @This(), comptime T: type, comptime item: std.builtin
     return error.could_not_decode_enum;
 }
 
-inline fn parse_union(self: @This(), comptime T: type, comptime item: std.builtin.Type.Union) !T {
+fn parse_union(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Union;
     var value: T = undefined;
     var arity: i32 = 0;
     var typ: i32 = 0;
@@ -133,7 +177,7 @@ inline fn parse_union(self: @This(), comptime T: type, comptime item: std.builti
     );
     const enum_type = std.meta.Tag(T);
     if (typ == ei.ERL_ATOM_EXT) {
-        const tuple_name = try parse_enum(self, enum_type, @typeInfo(enum_type).Enum);
+        const tuple_name = try parse_enum(self, enum_type);
         switch (tuple_name) {
             inline else => |name| {
                 inline for (item.fields) |field| {
@@ -157,7 +201,7 @@ inline fn parse_union(self: @This(), comptime T: type, comptime item: std.builti
         if (arity != 2) {
             return error.wrong_arity_for_tuple;
         }
-        const tuple_name = try parse_enum(self, enum_type, @typeInfo(enum_type).Enum);
+        const tuple_name = try parse_enum(self, enum_type);
         switch (tuple_name) {
             inline else => |name| {
                 inline for (item.fields) |field| {
@@ -177,7 +221,8 @@ inline fn parse_union(self: @This(), comptime T: type, comptime item: std.builti
     return error.unknown_tuple_tag;
 }
 
-inline fn parse_pointer(self: @This(), comptime T: type, comptime item: std.builtin.Type.Pointer) !T {
+fn parse_pointer(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Pointer;
     var value: T = undefined;
     if (item.size != .Slice)
         return error.unsupported_pointer_type;
@@ -218,7 +263,8 @@ inline fn parse_pointer(self: @This(), comptime T: type, comptime item: std.buil
     return value;
 }
 
-inline fn parse_array(self: @This(), comptime T: type, comptime item: std.builtin.Type.Array) !T {
+fn parse_array(self: Reader, comptime T: type) Error!T {
+    const item = @typeInfo(T).Array;
     var value: T = undefined;
     var size: i32 = 0;
     try erl.validate(
@@ -238,7 +284,7 @@ inline fn parse_array(self: @This(), comptime T: type, comptime item: std.builti
     return value;
 }
 
-inline fn parse_bool(self: @This()) !bool {
+fn parse_bool(self: Reader) Error!bool {
     var bool_value: i32 = 0;
     try erl.validate(
         error.decoding_boolean,
@@ -247,43 +293,25 @@ inline fn parse_bool(self: @This()) !bool {
     return bool_value != 0;
 }
 
-pub fn parse(self: @This(), comptime T: type) !T {
-    var value: T = undefined;
-    if (T == [:0]const u8) {
-        value = try parse_string(self);
-    } else if (T == ei.erlang_pid) {
+pub fn parse(self: Reader, comptime T: type) Error!T {
+    return if (T == [:0]const u8)
+        parse_string(self)
+    else if (T == ei.erlang_pid) blk: {
+        var value: T = undefined;
         try erl.validate(
             error.invalid_pid,
             ei.ei_decode_pid(self.buf.buff, self.index, &value),
         );
+        break :blk value;
     } else switch (@typeInfo(T)) {
-        .Struct => |item| {
-            value = try parse_struct(self, T, item);
-        },
-        .Int => |item| {
-            value = try parse_int(self, T, item);
-        },
-        .Enum => |item| {
-            value = try parse_enum(self, T, item);
-        },
-        .Union => |item| {
-            value = try parse_union(self, T, item);
-        },
-        .Pointer => |item| {
-            value = try parse_pointer(self, T, item);
-        },
-        .Array => |item| {
-            value = try parse_array(self, T, item);
-        },
-        .Bool => {
-            value = try parse_bool(self, T);
-        },
-        .Void => {
-            @compileError("Void is not supported for deserialization");
-        },
-        else => {
-            @compileError("Unsupported type in deserialization");
-        },
-    }
-    return value;
+        .Struct => self.parse_struct(T),
+        .Int => self.parse_int(T),
+        .Enum => self.parse_enum(T),
+        .Union => self.parse_union(T),
+        .Pointer => self.parse_pointer(T),
+        .Array => self.parse_array(T),
+        .Bool => self.parse_bool(T),
+        .Void => @compileError("Void is not supported for deserialization"),
+        else => @compileError("Unsupported type in deserialization"),
+    };
 }
