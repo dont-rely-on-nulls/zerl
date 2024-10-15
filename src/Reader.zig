@@ -67,11 +67,11 @@ fn parse_atom_or_string(
 }
 
 fn parse_string(self: Reader) ![:0]const u8 {
-    return parse_atom_or_string(self, ei.ei_decode_string);
+    return self.parse_atom_or_string(ei.ei_decode_string);
 }
 
 fn parse_atom(self: Reader) ![:0]const u8 {
-    return parse_atom_or_string(self, ei.ei_decode_atom);
+    return self.parse_atom_or_string(ei.ei_decode_atom);
 }
 
 fn parse_struct(self: Reader, comptime T: type) Error!T {
@@ -85,7 +85,7 @@ fn parse_struct(self: Reader, comptime T: type) Error!T {
         );
         if (item.fields.len != size) return error.wrong_tuple_size;
         inline for (&value) |*elem| {
-            elem.* = try parse(self, @TypeOf(elem.*));
+            elem.* = try self.parse(@TypeOf(elem.*));
         }
     } else {
         try erl.validate(
@@ -97,16 +97,16 @@ fn parse_struct(self: Reader, comptime T: type) Error!T {
         var counter: u32 = 0;
         if (size > fields.len) return error.too_many_map_entries;
         for (0..@intCast(size)) |_| {
-            const key = try parse_atom(self);
+            const key = try self.parse_atom();
             // TODO: There's probably a way to avoid this loop
             inline for (0.., fields) |idx, field| {
                 if (std.mem.eql(u8, field.name, key)) {
                     const current_field = &@field(value, field.name);
                     const field_type = @typeInfo(field.type);
                     if (field_type == .Optional) {
-                        current_field.* = try parse(self, field_type.Optional.child);
+                        current_field.* = try self.parse(field_type.Optional.child);
                     } else {
-                        current_field.* = try parse(self, field.type);
+                        current_field.* = try self.parse(field.type);
                     }
                     present_fields[idx] = true;
                     counter += 1;
@@ -155,7 +155,7 @@ fn parse_int(self: Reader, comptime T: type) Error!T {
 
 fn parse_enum(self: Reader, comptime T: type) Error!T {
     const item = @typeInfo(T).Enum;
-    const name = try parse_atom(self);
+    const name = try self.parse_atom();
     errdefer self.allocator.free(name);
     inline for (item.fields) |field| {
         if (std.mem.eql(u8, field.name, name)) {
@@ -177,7 +177,7 @@ fn parse_union(self: Reader, comptime T: type) Error!T {
     );
     const enum_type = std.meta.Tag(T);
     if (typ == ei.ERL_ATOM_EXT) {
-        const tuple_name = try parse_enum(self, enum_type);
+        const tuple_name = try self.parse_enum(enum_type);
         switch (tuple_name) {
             inline else => |name| {
                 inline for (item.fields) |field| {
@@ -201,7 +201,7 @@ fn parse_union(self: Reader, comptime T: type) Error!T {
         if (arity != 2) {
             return error.wrong_arity_for_tuple;
         }
-        const tuple_name = try parse_enum(self, enum_type);
+        const tuple_name = try self.parse_enum(enum_type);
         switch (tuple_name) {
             inline else => |name| {
                 inline for (item.fields) |field| {
@@ -210,7 +210,7 @@ fn parse_union(self: Reader, comptime T: type) Error!T {
                         field.name,
                         @tagName(name),
                     )) {
-                        const tuple_value = try parse(self, field.type);
+                        const tuple_value = try self.parse(field.type);
                         value = @unionInit(T, field.name, tuple_value);
                         return value;
                     }
@@ -250,7 +250,7 @@ fn parse_pointer(self: Reader, comptime T: type) Error!T {
         errdefer self.allocator.free(slice_buffer);
         // TODO: We should deallocate the children
         for (slice_buffer) |*elem| {
-            elem.* = try parse(self, item.child);
+            elem.* = try self.parse(item.child);
         }
         try erl.validate(
             error.decoding_list_in_pointer_2,
@@ -274,7 +274,7 @@ fn parse_array(self: Reader, comptime T: type) Error!T {
     if (item.len != size) return error.wrong_array_size;
     // TODO: We should deallocate the children
     for (0..value.len) |idx| {
-        value[idx] = try parse(self, item.child);
+        value[idx] = try self.parse(item.child);
     }
     try erl.validate(
         error.decoding_list_in_array_2,
@@ -295,7 +295,7 @@ fn parse_bool(self: Reader) Error!bool {
 
 pub fn parse(self: Reader, comptime T: type) Error!T {
     return if (T == [:0]const u8)
-        parse_string(self)
+        self.parse_string()
     else if (T == ei.erlang_pid) blk: {
         var value: T = undefined;
         try erl.validate(
