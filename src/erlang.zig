@@ -3,10 +3,10 @@ pub const ei = @cImport({
 });
 
 const std = @import("std");
-pub const receiver = @import("receiver.zig");
-pub const sender = @import("sender.zig");
+pub const Reader = @import("Reader.zig");
+pub const writer = @import("writer.zig");
 
-pub const Send_Error = std.mem.Allocator.Error || sender.Error || error{
+pub const Send_Error = std.mem.Allocator.Error || writer.Error || error{
     could_not_send_to_pid,
     could_not_send_to_named_process,
 };
@@ -44,16 +44,40 @@ pub const Node = struct {
     }
 
     pub fn receive(ec: *Node, comptime T: type, allocator: std.mem.Allocator) !T {
-        return receiver.run(T, allocator, ec);
+        var msg: ei.erlang_msg = undefined;
+        var buf: ei.ei_x_buff = undefined;
+        var index: i32 = 0;
+
+        // FIXME: hidden allocation
+        try validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+        defer _ = ei.ei_x_free(&buf);
+
+        while (true) {
+            const got: i32 = ei.ei_xreceive_msg(ec.fd, &msg, &buf);
+            if (got == ei.ERL_TICK)
+                continue;
+            if (got == ei.ERL_ERROR) {
+                return error.got_error_receiving_message;
+            }
+            break;
+        }
+
+        try validate(error.decoding_version, ei.ei_decode_version(buf.buff, &index, null));
+        return (Reader{
+            .buf = &buf,
+            .index = &index,
+            .allocator = allocator,
+        }).parse(T);
     }
 
     pub fn send(ec: *Node, destination: anytype, data: anytype) Send_Error!void {
         var buf: ei.ei_x_buff = undefined;
+
         // TODO: get rid of hidden allocation
         try validate(error.OutOfMemory, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
-        try sender.send_payload(&buf, data);
+        try writer.any(&buf, data);
         const Destination = @TypeOf(destination);
         if (Destination == ei.erlang_pid) {
             try validate(
