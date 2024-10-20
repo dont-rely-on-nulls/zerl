@@ -310,7 +310,7 @@ pub fn parse(self: Reader, comptime T: type) Error!T {
         .Union => self.parse_union(T),
         .Pointer => self.parse_pointer(T),
         .Array => self.parse_array(T),
-        .Bool => self.parse_bool(T),
+        .Bool => self.parse_bool(),
         .Void => @compileError("Void is not supported for deserialization"),
         else => @compileError("Unsupported type in deserialization"),
     };
