@@ -43,7 +43,7 @@ allocator: std.mem.Allocator,
 
 fn parse_atom_or_string(
     self: Reader,
-    erlang_fun: *const fn ([*c]const u8, [*c]c_int, [*c]u8) callconv(.C) c_int,
+    erlang_fun: *const fn ([*:0]const u8, *c_int, [*:0]u8) callconv(.C) c_int,
 ) ![:0]const u8 {
     var length: i32 = undefined;
     var ty: i32 = undefined;
