@@ -3,7 +3,7 @@ pub const ei = @cImport({
 });
 const std = @import("std");
 const erl = @import("erlang.zig");
-const Reader = @This();
+const Decoder = @This();
 
 pub const Error = std.mem.Allocator.Error || error{
     decoding_atom_string_length,
@@ -42,7 +42,7 @@ index: *i32,
 allocator: std.mem.Allocator,
 
 fn parse_atom_or_string(
-    self: Reader,
+    self: Decoder,
     erlang_fun: *const fn ([*:0]const u8, *c_int, [*:0]u8) callconv(.C) c_int,
 ) ![:0]const u8 {
     var length: i32 = undefined;
@@ -66,15 +66,15 @@ fn parse_atom_or_string(
     return buffer;
 }
 
-fn parse_string(self: Reader) ![:0]const u8 {
+fn parse_string(self: Decoder) ![:0]const u8 {
     return self.parse_atom_or_string(ei.ei_decode_string);
 }
 
-fn parse_atom(self: Reader) ![:0]const u8 {
+fn parse_atom(self: Decoder) ![:0]const u8 {
     return self.parse_atom_or_string(ei.ei_decode_atom);
 }
 
-fn parse_struct(self: Reader, comptime T: type) Error!T {
+fn parse_struct(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Struct;
     var value: T = undefined;
     var size: i32 = 0;
@@ -131,7 +131,7 @@ fn parse_struct(self: Reader, comptime T: type) Error!T {
     return value;
 }
 
-fn parse_int(self: Reader, comptime T: type) Error!T {
+fn parse_int(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Int;
     var value: T = undefined;
     if (item.signedness == .signed) {
@@ -153,7 +153,7 @@ fn parse_int(self: Reader, comptime T: type) Error!T {
     }
 }
 
-fn parse_enum(self: Reader, comptime T: type) Error!T {
+fn parse_enum(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Enum;
     const name = try self.parse_atom();
     errdefer self.allocator.free(name);
@@ -165,7 +165,7 @@ fn parse_enum(self: Reader, comptime T: type) Error!T {
     return error.could_not_decode_enum;
 }
 
-fn parse_union(self: Reader, comptime T: type) Error!T {
+fn parse_union(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Union;
     var value: T = undefined;
     var arity: i32 = 0;
@@ -221,7 +221,7 @@ fn parse_union(self: Reader, comptime T: type) Error!T {
     return error.unknown_tuple_tag;
 }
 
-fn parse_pointer(self: Reader, comptime T: type) Error!T {
+fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Pointer;
     var value: T = undefined;
     if (item.size != .Slice)
@@ -263,7 +263,7 @@ fn parse_pointer(self: Reader, comptime T: type) Error!T {
     return value;
 }
 
-fn parse_array(self: Reader, comptime T: type) Error!T {
+fn parse_array(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Array;
     var value: T = undefined;
     var size: i32 = 0;
@@ -284,7 +284,7 @@ fn parse_array(self: Reader, comptime T: type) Error!T {
     return value;
 }
 
-fn parse_bool(self: Reader) Error!bool {
+fn parse_bool(self: Decoder) Error!bool {
     var bool_value: i32 = 0;
     try erl.validate(
         error.decoding_boolean,
@@ -293,7 +293,7 @@ fn parse_bool(self: Reader) Error!bool {
     return bool_value != 0;
 }
 
-pub fn parse(self: Reader, comptime T: type) Error!T {
+pub fn parse(self: Decoder, comptime T: type) Error!T {
     return if (T == [:0]const u8)
         self.parse_string()
     else if (T == ei.erlang_pid) blk: {

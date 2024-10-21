@@ -3,10 +3,10 @@ pub const ei = @cImport({
 });
 
 const std = @import("std");
-pub const Reader = @import("Reader.zig");
-pub const writer = @import("writer.zig");
+pub const Decoder = @import("Decoder.zig");
+pub const encoder = @import("encoder.zig");
 
-pub const Send_Error = std.mem.Allocator.Error || writer.Error || error{
+pub const Send_Error = std.mem.Allocator.Error || encoder.Error || error{
     could_not_send_to_pid,
     could_not_send_to_named_process,
 };
@@ -27,8 +27,8 @@ pub const Node = struct {
 
         var src_node_name: [name_length / 2]u8 = undefined;
         std.crypto.random.bytes(&src_node_name);
-        const encoder = std.base64.Base64Encoder.init(std.base64.standard_alphabet_chars, null);
-        _ = encoder.encode(&tempNode.node_name, &src_node_name);
+        const b64_encoder = std.base64.Base64Encoder.init(std.base64.standard_alphabet_chars, null);
+        _ = b64_encoder.encode(&tempNode.node_name, &src_node_name);
 
         const creation = std.time.timestamp() + 1;
         const creation_u: u64 = @bitCast(creation);
@@ -63,7 +63,7 @@ pub const Node = struct {
         }
 
         try validate(error.decoding_version, ei.ei_decode_version(buf.buff, &index, null));
-        return (Reader{
+        return (Decoder{
             .buf = &buf,
             .index = &index,
             .allocator = allocator,
@@ -77,7 +77,7 @@ pub const Node = struct {
         try validate(error.OutOfMemory, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
-        try writer.write_any(&buf, data);
+        try encoder.write_any(&buf, data);
         const Destination = @TypeOf(destination);
         if (Destination == ei.erlang_pid) {
             try validate(
