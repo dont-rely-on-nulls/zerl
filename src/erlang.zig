@@ -77,7 +77,7 @@ pub const Node = struct {
         try validate(error.OutOfMemory, ei.ei_x_new_with_version(&buf));
         defer _ = ei.ei_x_free(&buf);
 
-        try writer.any(&buf, data);
+        try writer.write_any(&buf, data);
         const Destination = @TypeOf(destination);
         if (Destination == ei.erlang_pid) {
             try validate(
