@@ -190,7 +190,7 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
         else
             erl.validate(
                 error.could_not_encode_float,
-                ei.ei_x_encode_double(buf, @floatCast(data)),
+                ei.ei_x_encode_double(buf, data),
             ),
         .Enum, .EnumLiteral => blk: {
             const name = @tagName(data);
