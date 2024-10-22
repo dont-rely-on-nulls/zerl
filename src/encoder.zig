@@ -185,13 +185,10 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ei.ei_x_encode_ulonglong(buf, data),
             ),
 
-        .Float => |info| if (65 <= info.bits)
-            @compileError("unsupported float size")
-        else
-            erl.validate(
-                error.could_not_encode_float,
-                ei.ei_x_encode_double(buf, data),
-            ),
+        .Float => erl.validate(
+            error.could_not_encode_float,
+            ei.ei_x_encode_double(buf, @floatCast(data)),
+        ),
         .Enum, .EnumLiteral => blk: {
             const name = @tagName(data);
             break :blk erl.validate(
