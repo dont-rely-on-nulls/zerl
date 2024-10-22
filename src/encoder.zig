@@ -172,7 +172,7 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             @as(if (0 <= data) u64 else i64, data),
         ),
         .ComptimeFloat => write_any(buf, @as(f64, data)),
-        .Int => |info| if (@bitSizeOf(c_longlong) <= info.bits)
+        .Int => |info| if (@bitSizeOf(c_longlong) < info.bits)
             @compileError("Integer too large")
         else if (info.signedness == .signed)
             erl.validate(
@@ -185,10 +185,13 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ei.ei_x_encode_ulonglong(buf, data),
             ),
 
-        .Float => erl.validate(
-            error.could_not_encode_float,
-            ei.ei_x_encode_double(buf, @floatCast(data)),
-        ),
+        .Float => |info| if (65 <= info.bits)
+            @compileError("Float too large")
+        else
+            erl.validate(
+                error.could_not_encode_float,
+                ei.ei_x_encode_double(buf, @floatCast(data)),
+            ),
         .Enum, .EnumLiteral => blk: {
             const name = @tagName(data);
             break :blk erl.validate(
