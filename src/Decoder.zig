@@ -2,6 +2,7 @@ pub const ei = @cImport({
     @cInclude("ei.h");
 });
 const std = @import("std");
+const assert = std.debug.assert;
 const erl = @import("erlang.zig");
 const Decoder = @This();
 
@@ -151,6 +152,17 @@ fn parse_int(self: Decoder, comptime T: type) Error!T {
         }
         return error.unsigned_out_of_bounds;
     }
+}
+
+fn parse_float(self: Decoder, comptime T: type) Error!T {
+    comptime assert(@typeInfo(T) == .Float);
+    var aux: f64 = undefined;
+    try erl.validate(error.decoding_double, ei.ei_decode_double(
+        self.buf.buff,
+        self.index,
+        &aux,
+    ));
+    return @floatCast(aux);
 }
 
 fn parse_enum(self: Decoder, comptime T: type) Error!T {
@@ -306,6 +318,7 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
     } else switch (@typeInfo(T)) {
         .Struct => self.parse_struct(T),
         .Int => self.parse_int(T),
+        .Float => self.parse_float(T),
         .Enum => self.parse_enum(T),
         .Union => self.parse_union(T),
         .Pointer => self.parse_pointer(T),

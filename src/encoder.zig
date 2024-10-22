@@ -172,8 +172,8 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             @as(if (0 <= data) u64 else i64, data),
         ),
         .ComptimeFloat => write_any(buf, @as(f64, data)),
-        .Int => |info| if (65 <= info.bits)
-            @compileError("unsupported integer size")
+        .Int => |info| if (@bitSizeOf(c_longlong) < info.bits)
+            @compileError("Integer too large")
         else if (info.signedness == .signed)
             erl.validate(
                 error.could_not_encode_int,
@@ -186,7 +186,7 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             ),
 
         .Float => |info| if (65 <= info.bits)
-            @compileError("unsupported float size")
+            @compileError("Float too large")
         else
             erl.validate(
                 error.could_not_encode_float,
