@@ -16,6 +16,7 @@ pub const Error = std.mem.Allocator.Error || error{
     too_many_map_entries,
     too_few_map_entries,
     missing_field_in_struct,
+    decoding_double,
     decoding_signed_integer,
     signed_out_of_bounds,
     decoding_unsigned_integer,
