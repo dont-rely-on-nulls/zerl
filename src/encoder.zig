@@ -10,6 +10,7 @@ pub const Error = error{
     could_not_encode_map,
     could_not_encode_atom,
     could_not_encode_tuple,
+    could_not_encode_float,
     could_not_encode_int,
     could_not_encode_uint,
     could_not_encode_list_head,
