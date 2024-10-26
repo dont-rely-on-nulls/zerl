@@ -12,23 +12,20 @@ pub const Send_Error = std.mem.Allocator.Error || encoder.Error || error{
 };
 
 pub const Node = struct {
-    const name_length = 10;
+    const name_length = 64;
     pub const max_buffer_size = 50;
     c_node: ei.ei_cnode,
     fd: i32,
     node_name: [name_length:0]u8,
 
     pub fn init(cookie: [:0]const u8) !Node {
+        var src_node_name: [name_length / 2]u8 = undefined;
+        std.crypto.random.bytes(&src_node_name);
         var tempNode: Node = .{
             .c_node = undefined,
             .fd = undefined,
-            .node_name = .{0} ** name_length,
+            .node_name = std.fmt.bytesToHex(src_node_name, .lower) ++ [0:0]u8{},
         };
-
-        var src_node_name: [name_length / 2]u8 = undefined;
-        std.crypto.random.bytes(&src_node_name);
-        const b64_encoder = std.base64.Base64Encoder.init(std.base64.standard_alphabet_chars, null);
-        _ = b64_encoder.encode(&tempNode.node_name, &src_node_name);
 
         const creation = std.time.timestamp() + 1;
         const creation_u: u64 = @bitCast(creation);
