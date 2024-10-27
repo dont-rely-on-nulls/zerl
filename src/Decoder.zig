@@ -128,14 +128,11 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
     inline for (present_fields, fields) |is_present, field| {
         if (!is_present) {
             const current_field = &@field(value, field.name);
-            if (field.default_value) |default_opaque| {
-                const Current = comptime blk: {
-                    var current_info = @typeInfo(@TypeOf(current_field));
-                    current_info.Pointer.is_const = true;
-                    break :blk @Type(current_info);
-                };
-                const default: Current = @alignCast(@ptrCast(default_opaque));
-                current_field.* = default.*;
+            if (field.default_value) |default| {
+                current_field.* = @as(
+                    *const field.type,
+                    @alignCast(@ptrCast(default))
+                ).*;
             } else if (@typeInfo(field.type) == .Optional) {
                 current_field.* = null;
             } else {
