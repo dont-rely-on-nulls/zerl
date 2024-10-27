@@ -103,7 +103,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
         error.decoding_map,
         ei.ei_decode_map_header(self.buf.buff, self.index, &size),
     );
-    var present_fields: [fields.len]bool = .{false} ** fields.len;
+    var present_fields = std.StaticBitSet(fields.len).initEmpty();
     var counter: u32 = 0;
     if (size > fields.len) return error.too_many_map_entries;
     for (0..@intCast(size)) |_| {
@@ -118,20 +118,20 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
                 } else {
                     current_field.* = try self.parse(field.type);
                 }
-                present_fields[idx] = true;
+                present_fields.set(idx);
                 counter += 1;
             }
         }
     }
     if (size < counter) return error.too_few_map_entries;
     var should_error = false;
-    inline for (present_fields, fields) |is_present, field| {
-        if (!is_present) {
+    inline for (0.., fields) |idx, field| {
+        if (!present_fields.isSet(idx)) {
             const current_field = &@field(value, field.name);
             if (field.default_value) |default| {
                 current_field.* = @as(
                     *const field.type,
-                    @alignCast(@ptrCast(default))
+                    @alignCast(@ptrCast(default)),
                 ).*;
             } else if (@typeInfo(field.type) == .Optional) {
                 current_field.* = null;
