@@ -34,16 +34,16 @@ we do not support error unions at all.
 Integers and floats are mapped in the expected way, with some caveats:
 
 - We do not support integers larger than a C ~long long~, or floats larger
-    than a ~double~. This is a limitation we inherit from ~libei~. We could
-    support big integers, but that would add a dependency on ~gmp~.
+  than a ~double~. This is a limitation we inherit from ~libei~. We could
+  support big integers, but that would add a dependency on ~gmp~.
 - Right now, we can send C ~long long~s but can only receive ~long~s. Fixing
-    that is a TODO.
+  that is a TODO.
 - When receiving integers, if Erlang sends something larger than the
-    expected destination type, we prefer to fail rather than truncate.
+  expected destination type, we prefer to fail rather than truncate.
 - If you wish to send a float larger than 64 bits, you will need to explicitly
-    ~@floatCast()~ it.
+  ~@floatCast()~ it.
 - On the other hand, we do ~@floatCast()~ implicitly when receiving because
-    otherwise we couldn't receive structs or arrays of small floats.
+  otherwise we couldn't receive structs or arrays of small floats.
 
 The asymmetry in the last two points is very likely to change in the future.
 
