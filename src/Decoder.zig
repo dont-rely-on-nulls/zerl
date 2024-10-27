@@ -76,61 +76,75 @@ fn parse_atom(self: Decoder) ![:0]const u8 {
     return self.parse_atom_or_string(ei.ei_decode_atom);
 }
 
-fn parse_struct(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Struct;
+fn parse_tuple(self: Decoder, comptime T: type) Error!T {
+    const type_info = @typeInfo(T).Struct;
+    comptime assert(type_info.is_tuple);
     var value: T = undefined;
     var size: i32 = 0;
-    if (item.is_tuple) {
-        try erl.validate(
-            error.decoding_tuple,
-            ei.ei_decode_tuple_header(self.buf.buff, self.index, &size),
-        );
-        if (item.fields.len != size) return error.wrong_tuple_size;
-        inline for (&value) |*elem| {
-            elem.* = try self.parse(@TypeOf(elem.*));
-        }
-    } else {
-        try erl.validate(
-            error.decoding_map,
-            ei.ei_decode_map_header(self.buf.buff, self.index, &size),
-        );
-        const fields = std.meta.fields(T);
-        var present_fields: [fields.len]bool = .{false} ** fields.len;
-        var counter: u32 = 0;
-        if (size > fields.len) return error.too_many_map_entries;
-        for (0..@intCast(size)) |_| {
-            const key = try self.parse_atom();
-            // TODO: There's probably a way to avoid this loop
-            inline for (0.., fields) |idx, field| {
-                if (std.mem.eql(u8, field.name, key)) {
-                    const current_field = &@field(value, field.name);
-                    const field_type = @typeInfo(field.type);
-                    if (field_type == .Optional) {
-                        current_field.* = try self.parse(field_type.Optional.child);
-                    } else {
-                        current_field.* = try self.parse(field.type);
-                    }
-                    present_fields[idx] = true;
-                    counter += 1;
-                }
-            }
-        }
-        if (size < counter) return error.too_few_map_entries;
-        var should_error = false;
-        inline for (present_fields, fields) |presence, field| {
-            if (!presence) {
-                if (@typeInfo(field.type) == .Optional) {
-                    const current_field = &@field(value, field.name);
-                    current_field.* = null;
-                } else {
-                    std.debug.print("Missing Field in Struct {s}: {s}\n", .{ @typeName(T), field.name });
-                    should_error = true;
-                }
-            }
-        }
-        if (should_error) return error.missing_field_in_struct;
+    try erl.validate(
+        error.decoding_tuple,
+        ei.ei_decode_tuple_header(self.buf.buff, self.index, &size),
+    );
+    if (type_info.fields.len != size) return error.wrong_tuple_size;
+    inline for (&value) |*elem| {
+        elem.* = try self.parse(@TypeOf(elem.*));
     }
     return value;
+}
+
+fn parse_struct(self: Decoder, comptime T: type) Error!T {
+    const type_info = @typeInfo(T).Struct;
+    comptime assert(!type_info.is_tuple);
+    const fields = type_info.fields;
+
+    var value: T = undefined;
+    var size: i32 = 0;
+    try erl.validate(
+        error.decoding_map,
+        ei.ei_decode_map_header(self.buf.buff, self.index, &size),
+    );
+    var present_fields = std.StaticBitSet(fields.len).initEmpty();
+    var counter: u32 = 0;
+    if (size > fields.len) return error.too_many_map_entries;
+    for (0..@intCast(size)) |_| {
+        const key = try self.parse_atom();
+        // TODO: There's probably a way to avoid this loop
+        inline for (0.., fields) |idx, field| {
+            if (std.mem.eql(u8, field.name, key)) {
+                const current_field = &@field(value, field.name);
+                const field_type = @typeInfo(field.type);
+                if (field_type == .Optional) {
+                    current_field.* = try self.parse(field_type.Optional.child);
+                } else {
+                    current_field.* = try self.parse(field.type);
+                }
+                present_fields.set(idx);
+                counter += 1;
+            }
+        }
+    }
+    if (size < counter) return error.too_few_map_entries;
+    var should_error = false;
+    inline for (0.., fields) |idx, field| {
+        if (!present_fields.isSet(idx)) {
+            const current_field = &@field(value, field.name);
+            if (field.default_value) |default| {
+                current_field.* = @as(
+                    *const field.type,
+                    @alignCast(@ptrCast(default)),
+                ).*;
+            } else if (@typeInfo(field.type) == .Optional) {
+                current_field.* = null;
+            } else {
+                std.debug.print("Missing Field in Struct {s}: {s}\n", .{
+                    @typeName(T),
+                    field.name,
+                });
+                should_error = true;
+            }
+        }
+    }
+    return if (should_error) error.missing_field_in_struct else value;
 }
 
 fn parse_int(self: Decoder, comptime T: type) Error!T {
@@ -317,7 +331,7 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
         );
         break :blk value;
     } else switch (@typeInfo(T)) {
-        .Struct => self.parse_struct(T),
+        .Struct => |info| (if (info.is_tuple) parse_tuple else parse_struct)(self, T),
         .Int => self.parse_int(T),
         .Float => self.parse_float(T),
         .Enum => self.parse_enum(T),
