@@ -1,0 +1,88 @@
+* Translating between Zig and Erlang Types
+
+Zerl tries to translate types between Zig and Erlang in a way that's idiomatic
+for both sides. This file describes how the types in Zig and in the BEAM are
+translated between one another.
+
+If you just want the TLDR, here's a quick reference table:
+
+| Zig Type       | Erlang Type        |
+|----------------|--------------------|
+| Integer        | Integer            |
+| Float          | Float              |
+| PID            | PID                |
+| Slice of Bytes | String             |
+| Slice          | List               |
+| Array          | List               |
+| Tuple          | Tuple              |
+| Struct         | Map                |
+| Enum           | Atom               |
+| Bool           | Bool               |
+| Tagged Union   | Tagged Tuple, Atom |
+
+Read on for remarks on specific types. Keep in mind that the details in here
+are still subject to change.
+
+** Optionals and Error Unions
+
+You may have noticed that these two types are absent from the table above.
+Currently, we only support optionals if they appear inside of structs, and
+we do not support error unions at all.
+
+** Numeric Types
+
+Integers and floats are mapped in the expected way, with some caveats:
+
+- We do not support integers larger than a C ~long long~, or floats larger
+    than a ~double~. This is a limitation we inherit from ~libei~. We could
+    support big integers, but that would add a dependency on ~gmp~.
+- When receiving integers, if Erlang sends something larger than the
+    expected destination type, we prefer to fail rather than truncate.
+- If you wish to send a float larger than 64 bits, you will need to explicitly
+    ~@floatCast()~ it.
+- On the other hand, we do ~@floatCast()~ implicitly when receiving because
+    otherwise we couldn't receive structs or arrays of small floats.
+
+The asymmetry in the last two points is very likely to change in the future.
+
+** Slices
+
+We encode slices of bytes (i.e. ~[]u8~ and friends) as strings, which are just
+lists of integers in Erlang. Currently there's a small inconsistency in how we
+decode them: we only decode a string if the destination type is precisely
+~[:0] const u8~, otherwise we decode a list.
+
+We do plan to support binaries in the future, but that's not yet implemented.
+
+** Arrays
+
+We may allow Erlang tuples to be coerced into Zig arrays in the future, but
+we'll always send them to Erlang as lists. The jury's still out on how they'll
+interact with binaries.
+
+** Enums
+
+Enums are mapped to atoms because they're used in similar ways.
+
+** Tuples and Tagged Unions
+
+Currently, Zig tuples can receive arbitrary Erlang tuples, while tagged unions
+can only receive tuples of length 2. This is not very convenient when dealing
+with Erlang records (which desugar to tagged tuples), but we do have plans to
+improve this area.
+
+Note that tagged union members with a payload of `void` are mapped to atoms
+instead, because it is not idiomatic in Erlang to pass around Tuples of one item.
+
+There are no plans to support Zig untagged unions.
+
+** Structs
+
+Structs are converted to maps in order to allow fields with default values,
+optional fields, and to not have to worry about field ordering on the Erlang
+side.
+
+Extern structs are currently treated exactly the same as normal structs, but
+since their fields have a guaranteed order we do want to allow tuples to map
+to them. However, it's not clear if they should be encoded as tuples when
+they are sent by themselves, outside of a tagged union, or how we should.

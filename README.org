@@ -1,0 +1,13 @@
+* 🌠 Zerl: Making Erlang + Zig communication EZ
+
+/WORK IN PROGRESS/
+
+This is a library for communicating with the BEAM from Zig. It is a wrapper
+around ~libei~, which is provided with Erlang, and currently targets Zig version
+~0.13.0~.
+
+Note that ~libei~ is not currently packaged for Zig, so users of Zerl will need
+to provide the dependency themselves.
+
+Please refer to [[doc/types.org][this document]] for how types are translated
+between Zig and Erlang.
