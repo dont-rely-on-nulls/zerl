@@ -1,7 +1,7 @@
 * 🌠 Zerl: Making Erlang + Zig communication EZ
 
 #+attr_html: :align center
-#+attr_html: :width 200px
+#+attr_html: :width 40%
 [[images/logo.png]]
 
 /*WORK IN PROGRESS*/
