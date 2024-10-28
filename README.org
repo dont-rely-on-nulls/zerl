@@ -4,7 +4,7 @@
 #+attr_html: :width 200px
 [[images/logo.png]]
 
-*/WORK IN PROGRESS/*
+/*WORK IN PROGRESS*/
 
 This is a library for communicating with the BEAM from Zig. It is a wrapper
 around ~libei~, which is provided with Erlang, and currently targets Zig version
