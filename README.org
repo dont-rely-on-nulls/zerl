@@ -1,5 +1,8 @@
 * 🌠 Zerl: Making Erlang + Zig communication EZ
 
+#+attr_html: :align center
+[[images/logo.png]]
+
 /WORK IN PROGRESS/
 
 This is a library for communicating with the BEAM from Zig. It is a wrapper
