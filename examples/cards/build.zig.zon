@@ -1,0 +1,16 @@
+.{
+    .name = "zerl-cards-example",
+    .version = "0.0.0",
+    .minimum_zig_version = "0.13.0",
+    .dependencies = .{
+        .zerl = .{
+            .path = "../../",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "cards.zig",
+        "dealer.erl",
+    },
+}
