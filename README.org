@@ -4,7 +4,7 @@
 #+attr_org: :align center
 [[images/logo.png]]
 
-/WORK IN PROGRESS/
+*/WORK IN PROGRESS/*
 
 This is a library for communicating with the BEAM from Zig. It is a wrapper
 around ~libei~, which is provided with Erlang, and currently targets Zig version
@@ -15,3 +15,5 @@ to provide the dependency themselves.
 
 Please refer to [[doc/types.org][this document]] for how types are translated
 between Zig and Erlang.
+
+See the ~examples/~ directory for some code examples.
