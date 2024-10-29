@@ -87,5 +87,5 @@ side.
 Extern structs are currently treated exactly the same as normal structs, but
 since their fields have a guaranteed order we do want to allow tuples to map
 to them. However, it's not clear if they should be encoded as tuples when
-they are sent by themselves, outside of a tagged union, or if or how we should
+they are sent by themselves, outside of a tagged union, or how we should
 handle optional values.
