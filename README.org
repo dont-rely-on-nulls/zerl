@@ -1,8 +1,6 @@
 * 🌠 Zerl: Making Erlang + Zig communication EZ
 
-#+html: <img src="images/logo.png" \
-          alt="The Zerl Logo" \
-          style="margin-left: auto; margin-right: auto; width: 25%;">
+#+html: <img src="images/logo.png" alt="The Zerl Logo" style="margin-left: auto; margin-right: auto; width: 25%;">
 
 /*WORK IN PROGRESS*/
 
