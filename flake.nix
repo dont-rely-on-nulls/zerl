@@ -50,7 +50,7 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
 
-          erlangLatest = pkgs.erlang_26;
+          erlangLatest = pkgs.erlang_27;
           erlangLibs = getErlangLibs erlangLatest;
 
           env = zig2nix.outputs.zig-env.${system} {};
@@ -74,7 +74,7 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
 
-          erlangLatest = pkgs.erlang_26;
+          erlangLatest = pkgs.erlang_27;
           erlangLibs = getErlangLibs erlangLatest;
 
           env = zig2nix.outputs.zig-env.${system} {};
