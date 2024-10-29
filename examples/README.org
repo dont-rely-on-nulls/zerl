@@ -1,0 +1,17 @@
+* Zerl Examples
+
+In order to run these examples, you must have both Zig and Erlang installed.
+If you're running Nix, you can grab them using the flake in this repository
+with ~nix develop --impure~.
+
+~cd~ into the example you wish to run, then start the Erlang node with:
+
+#+begin_src sh
+zig build server
+#+end_src
+
+And then run the Zig client with:
+
+#+begin_src sh
+zig build client
+#+end_src
