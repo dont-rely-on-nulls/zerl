@@ -57,6 +57,7 @@ const Reply = union(enum) {
 };
 
 const deck: [52]Card = blk: {
+    // This just builds an array containing one of each card
     var cards: [4][13]Card = undefined;
     for (@typeInfo(Suit).Enum.fields, 0..) |suit_field, suit_index| {
         const suit: Suit = @enumFromInt(suit_field.value);
