@@ -6,10 +6,10 @@ const Reply = union(enum) {
 };
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_state.deinit();
 
-    const allocator = arena.allocator();
+    const arena = arena_state.allocator();
     const stderr = std.io.getStdErr().writer();
 
     try stderr.print("Running hello example...\n", .{});
@@ -24,7 +24,7 @@ pub fn main() !void {
     const message = zerl.With_Pid([]const u8){ self.*, "Hello, World!" };
     try node.send("echo", message);
 
-    const reply = try node.receive(Reply, allocator);
+    const reply = try node.receive(Reply, arena);
     try stderr.print("\nGot back: {s}\n", .{reply.ok});
     try node.send("echo", .die);
 }

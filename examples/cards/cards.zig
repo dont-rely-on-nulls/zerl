@@ -68,10 +68,10 @@ const deck: [52]Card = blk: {
 };
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_state.deinit();
 
-    const allocator = arena.allocator();
+    const arena = arena_state.allocator();
     const stderr = std.io.getStdErr().writer();
 
     try stderr.print("Running cards example...\n", .{});
@@ -96,7 +96,7 @@ pub fn main() !void {
     for (messages) |message| {
         try stderr.print("\nMessage: {}\n", .{message});
         try node.send("dealer", message);
-        const reply = try node.receive(Reply, allocator);
+        const reply = try node.receive(Reply, arena);
         try stderr.print("\nReply: {}\n", .{reply});
     }
 }
