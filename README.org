@@ -1,8 +1,6 @@
 * 🌠 Zerl: Making Erlang + Zig communication EZ
 
-#+attr_org: :align center
-#+attr_org: :width 25%
-[[images/logo.png]]
+#+html: <img src="images/logo.png" alt="The Zerl Logo" style="align: center; width: 25%;">
 
 /*WORK IN PROGRESS*/
 
