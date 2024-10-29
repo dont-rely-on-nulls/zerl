@@ -1,8 +1,8 @@
-* 🌠 Zerl: Making Erlang + Zig communication EZ
+* Zerl: Making Erlang + Zig communication EZ
 
 #+html: <img src="images/logo.png" alt="The Zerl Logo" style="width: 25%;">
 
-/*WORK IN PROGRESS*/
+/WORK IN PROGRESS/
 
 This is a library for communicating with the BEAM from Zig. It is a wrapper
 around ~libei~, which is provided with Erlang, and currently targets Zig version
