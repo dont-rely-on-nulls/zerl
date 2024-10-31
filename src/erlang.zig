@@ -122,3 +122,8 @@ pub fn establish_connection(ec: *Node, process_name: []const u8, ip: []const u8)
 pub fn With_Pid(comptime T: type) type {
     return std.meta.Tuple(&.{ ei.erlang_pid, T });
 }
+
+test {
+    _ = encoder;
+    _ = Decoder;
+}
