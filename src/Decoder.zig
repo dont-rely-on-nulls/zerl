@@ -108,6 +108,8 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
     if (size > fields.len) return error.too_many_map_entries;
     for (0..@intCast(size)) |_| {
         const key = try self.parse_atom();
+        defer self.allocator.free(key);
+
         // TODO: There's probably a way to avoid this loop
         inline for (0.., fields) |idx, field| {
             if (std.mem.eql(u8, field.name, key)) {
@@ -183,7 +185,8 @@ fn parse_float(self: Decoder, comptime T: type) Error!T {
 fn parse_enum(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Enum;
     const name = try self.parse_atom();
-    errdefer self.allocator.free(name);
+    defer self.allocator.free(name);
+
     inline for (item.fields) |field| {
         if (std.mem.eql(u8, field.name, name)) {
             return std.meta.stringToEnum(T, name) orelse error.invalid_tag_to_enum;
