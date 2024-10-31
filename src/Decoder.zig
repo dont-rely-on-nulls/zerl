@@ -186,7 +186,11 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
     const tag_map, const max_name_length = comptime blk: {
         var tags = std.EnumSet(T).initFull();
         var max_name_length = 0;
-        for (@typeInfo(T).Enum.fields) |field| {
+        const enum_fields = @typeInfo(T).Enum.fields;
+        if (enum_fields.len == 0) {
+            @compileError("Impossible to parse enum with no fields");
+        }
+        for (enum_fields) |field| {
             if (ei.MAXATOMLEN < field.name.len) {
                 tags.remove(@enumFromInt(field.value));
             } else {
@@ -217,7 +221,7 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
     );
     if (max_name_length < atom_size) return error.could_not_decode_enum;
 
-    var atom_name: [max_name_length:0]u8 = undefined;
+    var atom_name: [max_name_length + 1]u8 = undefined;
     try erl.validate(
         error.decoding_atom,
         ei.ei_decode_atom(self.buf.buff, self.index, &atom_name),
