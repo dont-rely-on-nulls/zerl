@@ -183,16 +183,68 @@ fn parse_float(self: Decoder, comptime T: type) Error!T {
 }
 
 fn parse_enum(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Enum;
-    const name = try self.parse_atom();
-    defer self.allocator.free(name);
-
-    inline for (item.fields) |field| {
-        if (std.mem.eql(u8, field.name, name)) {
-            return std.meta.stringToEnum(T, name) orelse error.invalid_tag_to_enum;
+    const tag_map, const max_name_length = comptime blk: {
+        var tags = std.EnumSet(T).initFull();
+        var max_name_length = 0;
+        for (@typeInfo(T).Enum.fields) |field| {
+            if (ei.MAXATOMLEN < field.name.len) {
+                tags.remove(@enumFromInt(field.value));
+            } else {
+                max_name_length = @max(max_name_length, field.name.len);
+            }
         }
-    }
-    return error.could_not_decode_enum;
+        if (tags.count() == 0) {
+            @compileError("All enum tags longer than max atom length");
+        }
+        var tag_map: [tags.count()]struct { []const u8, T } = undefined;
+        var tag_iter = tags.iterator();
+        var tag_index = 0;
+        while (tag_iter.next()) |tag| {
+            tag_map[tag_index] = .{ @tagName(tag), tag };
+            tag_index += 1;
+        }
+        break :blk .{
+            std.StaticStringMap(T).initComptime(tag_map),
+            max_name_length,
+        };
+    };
+
+    var type_tag: c_int = 0;
+    var atom_size: c_int = 0;
+    try erl.validate(
+        error.decoding_get_type,
+        ei.ei_get_type(self.buf.buff, self.index, &type_tag, &atom_size),
+    );
+    if (max_name_length < atom_size) return error.could_not_decode_enum;
+
+    var atom_name: [max_name_length:0]u8 = undefined;
+    try erl.validate(
+        error.decoding_atom,
+        ei.ei_decode_atom(self.buf.buff, self.index, &atom_name),
+    );
+    const name = atom_name[0..@as(c_uint, @bitCast(atom_size))];
+    return tag_map.get(name) orelse error.could_not_decode_enum;
+}
+
+test parse_enum {
+    const testing = std.testing;
+    const Suit = enum { diamonds, clubs, hearts, spades };
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    try erl.encoder.write_any(&buf, Suit.spades);
+
+    const spade = try (Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    }).parse_enum(Suit);
+
+    try testing.expectEqual(Suit.spades, spade);
 }
 
 fn parse_union(self: Decoder, comptime T: type) Error!T {
