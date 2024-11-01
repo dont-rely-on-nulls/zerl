@@ -447,7 +447,8 @@ test parse_array {
         .allocator = testing.failing_allocator,
     };
 
-    try testing.expectEqual(arc_numbers, try decoder.parse(@TypeOf(arc_numbers)));
+    const parsed_numbers = try decoder.parse(@TypeOf(arc_numbers));
+    try testing.expectEqual(arc_numbers, parsed_numbers);
 }
 
 fn parse_bool(self: Decoder) Error!bool {
