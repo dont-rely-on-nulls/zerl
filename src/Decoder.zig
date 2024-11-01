@@ -3,6 +3,7 @@ const erl = @import("erlang.zig");
 
 const assert = std.debug.assert;
 const ei = erl.ei;
+const testing = std.testing;
 
 const Decoder = @This();
 
@@ -90,6 +91,26 @@ fn parse_tuple(self: Decoder, comptime T: type) Error!T {
         elem.* = try self.parse(@TypeOf(elem.*));
     }
     return value;
+}
+
+test parse_tuple {
+    const Point = struct { enum { point }, i32, i32 };
+    const point = Point{ .point, 413, 612 };
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: i32 = 0;
+    try erl.encoder.write_any(&buf, point);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(point, try decoder.parse(Point));
 }
 
 fn parse_struct(self: Decoder, comptime T: type) Error!T {
@@ -231,7 +252,6 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_enum {
-    const testing = std.testing;
     const Suit = enum { diamonds, clubs, hearts, spades };
 
     var buf: ei.ei_x_buff = undefined;
@@ -371,8 +391,6 @@ fn parse_array(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_array {
-    const testing = std.testing;
-
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
@@ -402,8 +420,6 @@ fn parse_bool(self: Decoder) Error!bool {
 }
 
 test parse_bool {
-    const testing = std.testing;
-
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);

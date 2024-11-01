@@ -206,25 +206,3 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
         else => @compileError("unsupported type"),
     };
 }
-
-test "round trips" {
-    const testing = std.testing;
-    const allocator = testing.allocator;
-    const Decoder = erl.Decoder;
-    const Point = struct { enum { point }, i32, i32 };
-    const point = Point{ .point, 413, 612 };
-
-    var buf: ei.ei_x_buff = undefined;
-    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
-    defer _ = ei.ei_x_free(&buf);
-
-    var index: i32 = 0;
-    try write_any(&buf, point);
-    const new_point = try (Decoder{
-        .buf = &buf,
-        .index = &index,
-        .allocator = allocator,
-    }).parse(Point);
-
-    try testing.expectEqual(point, new_point);
-}
