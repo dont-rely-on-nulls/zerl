@@ -110,7 +110,7 @@ test parse_tuple {
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
 
-    var index: i32 = 0;
+    var index: c_int = 0;
     try erl.encoder.write_any(&buf, point);
 
     const decoder = Decoder{
@@ -198,7 +198,7 @@ test parse_struct {
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
 
-    var index: i32 = 0;
+    var index: c_int = 0;
     try erl.encoder.write_any(&buf, point);
 
     const decoder = Decoder{
@@ -287,7 +287,7 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
         error.decoding_atom,
         ei.ei_decode_atom(self.buf.buff, self.index, &atom_name),
     );
-    const name = atom_name[0..@as(c_uint, @bitCast(atom_size))];
+    const name = atom_name[0..@as(c_uint, @intCast(atom_size))];
     return tag_map.get(name) orelse error.could_not_decode_enum;
 }
 
@@ -451,7 +451,7 @@ test parse_array {
 }
 
 fn parse_bool(self: Decoder) Error!bool {
-    var bool_value: i32 = 0;
+    var bool_value: c_int = 0;
     try erl.validate(
         error.decoding_boolean,
         ei.ei_decode_boolean(self.buf.buff, self.index, &bool_value),
