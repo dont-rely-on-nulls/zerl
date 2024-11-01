@@ -1,8 +1,7 @@
-pub const ei = @cImport({
-    @cInclude("ei.h");
-});
-const erl = @import("erlang.zig");
 const std = @import("std");
+const erl = @import("erlang.zig");
+
+const ei = erl.ei;
 
 pub const Error = error{
     could_not_encode_pid,

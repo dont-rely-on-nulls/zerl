@@ -1,9 +1,9 @@
-pub const ei = @cImport({
-    @cInclude("ei.h");
-});
 const std = @import("std");
-const assert = std.debug.assert;
 const erl = @import("erlang.zig");
+
+const assert = std.debug.assert;
+const ei = erl.ei;
+
 const Decoder = @This();
 
 pub const Error = std.mem.Allocator.Error || error{
