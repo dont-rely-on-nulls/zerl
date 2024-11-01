@@ -73,7 +73,7 @@ fn parse_tuple(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).Struct;
     comptime assert(type_info.is_tuple);
     var value: T = undefined;
-    var size: i32 = 0;
+    var size: c_int = 0;
     try erl.validate(
         error.decoding_tuple,
         ei.ei_decode_tuple_header(self.buf.buff, self.index, &size),
@@ -355,7 +355,7 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     var value: T = undefined;
     if (item.size != .Slice)
         return error.unsupported_pointer_type;
-    var size: i32 = 0;
+    var size: c_int = 0;
     try erl.validate(
         error.decoding_list_in_pointer_1,
         ei.ei_decode_list_header(self.buf.buff, self.index, &size),
@@ -364,7 +364,7 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     if (size == 0 and !has_sentinel) {
         value = &.{};
     } else {
-        const usize_size: u32 = @intCast(size);
+        const usize_size: c_uint = @intCast(size);
         const slice_buffer = if (has_sentinel)
             try self.allocator.allocSentinel(
                 item.child,
@@ -395,7 +395,7 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
 fn parse_array(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Array;
     var value: T = undefined;
-    var size: i32 = 0;
+    var size: c_int = 0;
     try erl.validate(
         error.decoding_list_in_array_1,
         ei.ei_decode_list_header(self.buf.buff, self.index, &size),
