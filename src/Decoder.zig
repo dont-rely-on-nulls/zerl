@@ -69,14 +69,6 @@ fn parse_atom_or_string(
     return buffer;
 }
 
-fn parse_string(self: Decoder) ![:0]const u8 {
-    return self.parse_atom_or_string(ei.ei_decode_string);
-}
-
-fn parse_atom(self: Decoder) ![:0]const u8 {
-    return self.parse_atom_or_string(ei.ei_decode_atom);
-}
-
 fn parse_tuple(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).Struct;
     comptime assert(type_info.is_tuple);
@@ -128,7 +120,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
     var counter: u32 = 0;
     if (size > fields.len) return error.too_many_map_entries;
     for (0..@intCast(size)) |_| {
-        const key = try self.parse_atom();
+        const key = try self.parse_atom_or_string(ei.ei_decode_atom);
         defer self.allocator.free(key);
 
         // TODO: There's probably a way to avoid this loop
@@ -441,7 +433,7 @@ test parse_bool {
 
 pub fn parse(self: Decoder, comptime T: type) Error!T {
     return if (T == [:0]const u8)
-        self.parse_string()
+        self.parse_atom_or_string(ei.ei_decode_string)
     else if (T == ei.erlang_pid) blk: {
         var value: T = undefined;
         try erl.validate(
