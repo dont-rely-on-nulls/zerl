@@ -8,8 +8,7 @@ const testing = std.testing;
 const Decoder = @This();
 
 pub const Error = std.mem.Allocator.Error || error{
-    decoding_atom_string_length,
-    message_is_not_atom_or_string,
+    could_not_decode_string,
     decoding_atom,
     decoding_tuple,
     wrong_tuple_size,
@@ -24,7 +23,7 @@ pub const Error = std.mem.Allocator.Error || error{
     unsigned_out_of_bounds,
     invalid_tag_to_enum,
     could_not_decode_enum,
-    decoding_get_type,
+    could_not_get_type,
     invalid_union_tag,
     wrong_arity_for_tuple,
     failed_to_receive_payload,
@@ -41,32 +40,50 @@ pub const Error = std.mem.Allocator.Error || error{
 };
 
 buf: *ei.ei_x_buff,
-index: *i32,
+index: *c_int,
 allocator: std.mem.Allocator,
 
-fn parse_atom_or_string(
-    self: Decoder,
-    erlang_fun: *const fn ([*:0]const u8, *c_int, [*:0]u8) callconv(.C) c_int,
-) ![:0]const u8 {
-    var length: i32 = undefined;
-    var ty: i32 = undefined;
+fn parse_string(self: Decoder) Error![:0]const u8 {
+    var length: c_int = 0;
+    var ty: c_int = 0;
     try erl.validate(
-        error.decoding_atom_string_length,
+        error.could_not_get_type,
         ei.ei_get_type(self.buf.buff, self.index, &ty, &length),
     );
+    if (ty != ei.ERL_STRING_EXT) return error.could_not_decode_string;
 
-    if (ty != ei.ERL_STRING_EXT and ty != ei.ERL_ATOM_EXT)
-        return error.message_is_not_atom_or_string;
-
-    const u_length: u32 = @intCast(length);
+    const u_length: c_uint = @intCast(length);
 
     const buffer = try self.allocator.allocSentinel(u8, u_length, 0);
     errdefer self.allocator.free(buffer);
+
     try erl.validate(
-        error.decoding_atom,
-        erlang_fun(self.buf.buff, self.index, buffer.ptr),
+        error.could_not_decode_string,
+        ei.ei_decode_string(self.buf.buff, self.index, buffer.ptr),
     );
     return buffer;
+}
+
+test parse_string {
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    const written: [:0]const u8 = "We are the champions";
+
+    var index: c_int = 0;
+    try erl.encoder.write_any(&buf, written);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.allocator,
+    };
+
+    const read = try decoder.parse([:0]const u8);
+    defer testing.allocator.free(read);
+
+    try testing.expectEqualStrings(written, read);
 }
 
 fn parse_tuple(self: Decoder, comptime T: type) Error!T {
@@ -260,7 +277,7 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
     var type_tag: c_int = 0;
     var atom_size: c_int = 0;
     try erl.validate(
-        error.decoding_get_type,
+        error.could_not_get_type,
         ei.ei_get_type(self.buf.buff, self.index, &type_tag, &atom_size),
     );
     if (max_name_length < atom_size) return error.could_not_decode_enum;
@@ -297,11 +314,11 @@ test parse_enum {
 fn parse_union(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Union;
     var value: T = undefined;
-    var arity: i32 = 0;
-    var typ: i32 = 0;
-    var _v: i32 = undefined;
+    var arity: c_int = 0;
+    var typ: c_int = 0;
+    var _v: c_int = undefined;
     try erl.validate(
-        error.decoding_get_type,
+        error.could_not_get_type,
         ei.ei_get_type(self.buf.buff, self.index, &typ, &_v),
     );
     const enum_type = std.meta.Tag(T);
@@ -464,7 +481,7 @@ test parse_bool {
 
 pub fn parse(self: Decoder, comptime T: type) Error!T {
     return if (T == [:0]const u8)
-        self.parse_atom_or_string(ei.ei_decode_string)
+        self.parse_string()
     else if (T == ei.erlang_pid) blk: {
         var value: T = undefined;
         try erl.validate(
