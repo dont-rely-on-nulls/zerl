@@ -106,60 +106,91 @@ test parse_tuple {
 }
 
 fn parse_struct(self: Decoder, comptime T: type) Error!T {
-    const type_info = @typeInfo(T).Struct;
-    comptime assert(!type_info.is_tuple);
-    const fields = type_info.fields;
+    comptime assert(!@typeInfo(T).Struct.is_tuple);
+
+    const Key = std.meta.FieldEnum(T);
+    const Key_Set = std.EnumSet(Key);
+    const total_keys = comptime Key_Set.initFull().count();
+
+    const size: c_int = blk: {
+        var size: c_int = 0;
+        try erl.validate(
+            error.decoding_map,
+            ei.ei_decode_map_header(self.buf.buff, self.index, &size),
+        );
+        break :blk size;
+    };
+    if (total_keys < size) return error.too_many_map_entries;
 
     var value: T = undefined;
-    var size: i32 = 0;
-    try erl.validate(
-        error.decoding_map,
-        ei.ei_decode_map_header(self.buf.buff, self.index, &size),
-    );
-    var present_fields = std.StaticBitSet(fields.len).initEmpty();
-    var counter: u32 = 0;
-    if (size > fields.len) return error.too_many_map_entries;
+    var present_keys = Key_Set.initEmpty();
     for (0..@intCast(size)) |_| {
-        const key = try self.parse_atom_or_string(ei.ei_decode_atom);
-        defer self.allocator.free(key);
-
-        // TODO: There's probably a way to avoid this loop
-        inline for (0.., fields) |idx, field| {
-            if (std.mem.eql(u8, field.name, key)) {
-                const current_field = &@field(value, field.name);
-                const field_type = @typeInfo(field.type);
-                if (field_type == .Optional) {
+        switch (try self.parse_enum(Key)) {
+            inline else => |key| {
+                const current_field = &@field(value, @tagName(key));
+                const field_type = @TypeOf(current_field.*);
+                if (@typeInfo(field_type) == .Optional) {
                     current_field.* = try self.parse(field_type.Optional.child);
                 } else {
-                    current_field.* = try self.parse(field.type);
+                    current_field.* = try self.parse(field_type);
                 }
-                present_fields.set(idx);
-                counter += 1;
-            }
+                present_keys.insert(key);
+            },
         }
     }
-    if (size < counter) return error.too_few_map_entries;
+    assert(size == present_keys.count());
+
     var should_error = false;
-    inline for (0.., fields) |idx, field| {
-        if (!present_fields.isSet(idx)) {
-            const current_field = &@field(value, field.name);
-            if (field.default_value) |default| {
-                current_field.* = @as(
-                    *const field.type,
-                    @alignCast(@ptrCast(default)),
-                ).*;
-            } else if (@typeInfo(field.type) == .Optional) {
-                current_field.* = null;
-            } else {
-                std.debug.print("Missing Field in Struct {s}: {s}\n", .{
-                    @typeName(T),
-                    field.name,
-                });
-                should_error = true;
-            }
+    var missing_keys = present_keys.complement().iterator();
+    while (missing_keys.next()) |key_rt| {
+        switch (key_rt) {
+            inline else => |key| {
+                const field = comptime blk: {
+                    for (@typeInfo(T).Struct.fields) |field| {
+                        if (std.mem.eql(u8, field.name, @tagName(key)))
+                            break :blk field;
+                    }
+                };
+                const current_field = &@field(value, field.name);
+                if (field.default_value) |default| {
+                    current_field.* = @as(
+                        *const field.type,
+                        @alignCast(@ptrCast(default)),
+                    ).*;
+                } else if (@typeInfo(field.type) == .Optional) {
+                    current_field.* = null;
+                } else {
+                    std.log.err("[zerl] missing field in struct {s}: {s}\n", .{
+                        @typeName(T),
+                        field.name,
+                    });
+                    should_error = true;
+                }
+            },
         }
     }
     return if (should_error) error.missing_field_in_struct else value;
+}
+
+test parse_struct {
+    // TODO: optional fields and fields with default values
+    const Point = struct { x: i32, y: i32 };
+    const point = Point{ .x = 413, .y = 612 };
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: i32 = 0;
+    try erl.encoder.write_any(&buf, point);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(point, try decoder.parse(Point));
 }
 
 fn parse_int(self: Decoder, comptime T: type) Error!T {
