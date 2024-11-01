@@ -391,7 +391,7 @@ test parse_bool {
     try erl.encoder.write_any(&buf, true);
     try erl.encoder.write_any(&buf, false);
 
-    var decoder = Decoder{
+    const decoder = Decoder{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
