@@ -379,6 +379,28 @@ fn parse_bool(self: Decoder) Error!bool {
     return bool_value != 0;
 }
 
+test parse_bool {
+    const testing = std.testing;
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    try erl.encoder.write_any(&buf, true);
+    try erl.encoder.write_any(&buf, false);
+
+    var decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(true, try decoder.parse_bool());
+    try testing.expectEqual(false, try decoder.parse_bool());
+}
+
 pub fn parse(self: Decoder, comptime T: type) Error!T {
     return if (T == [:0]const u8)
         self.parse_string()

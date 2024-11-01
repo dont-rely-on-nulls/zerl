@@ -6,6 +6,7 @@ const ei = erl.ei;
 pub const Error = error{
     could_not_encode_pid,
     could_not_encode_binary,
+    could_not_encode_bool,
     could_not_encode_map,
     could_not_encode_atom,
     could_not_encode_tuple,

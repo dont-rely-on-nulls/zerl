@@ -103,7 +103,10 @@ pub const Node = struct {
     }
 };
 
-pub fn validate(error_tag: anytype, result_value: c_int) !void {
+pub fn validate(
+    comptime error_tag: anytype,
+    result_value: c_int,
+) @TypeOf(error_tag)!void {
     if (result_value < 0) {
         return error_tag;
     }
