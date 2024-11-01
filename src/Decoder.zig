@@ -370,6 +370,28 @@ fn parse_array(self: Decoder, comptime T: type) Error!T {
     return value;
 }
 
+test parse_array {
+    const testing = std.testing;
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    const arc_numbers = [_]i32{ 413, 612, 1025, 111111 };
+
+    try erl.encoder.write_any(&buf, arc_numbers);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(arc_numbers, try decoder.parse_array(@TypeOf(arc_numbers)));
+}
+
 fn parse_bool(self: Decoder) Error!bool {
     var bool_value: i32 = 0;
     try erl.validate(
