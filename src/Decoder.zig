@@ -470,21 +470,13 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
         ei.ei_decode_list_header(self.buf.buff, self.index, &size),
     );
 
-    const has_sentinel = type_info.sentinel != null;
-    if (size == 0 and !has_sentinel) return &.{};
+    if (size == 0 and type_info.sentinel == null) return &.{};
 
     const usize_size: c_uint = @intCast(size);
-    const slice_buffer = if (has_sentinel)
-        try self.allocator.allocSentinel(
-            type_info.child,
-            usize_size,
-            type_info.sentinel.?,
-        )
+    const slice_buffer = try if (type_info.sentinel) |sentinel|
+        self.allocator.allocSentinel(type_info.child, usize_size, sentinel)
     else
-        try self.allocator.alloc(
-            type_info.child,
-            usize_size,
-        );
+        self.allocator.alloc(type_info.child, usize_size);
     errdefer self.allocator.free(slice_buffer);
 
     // TODO: We should deallocate the children
