@@ -102,7 +102,9 @@ fn parse_tuple(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_tuple {
-    const Point = struct { enum { point }, i32, i32 };
+    // We need the comptime field here in 0.13.0 because of a bug.
+    // Problem is fixed in zig master.
+    const Point = struct { comptime enum { point } = .point, i32, i32 };
     const point = Point{ .point, 413, 612 };
 
     var buf: ei.ei_x_buff = undefined;
@@ -118,7 +120,7 @@ test parse_tuple {
         .allocator = testing.failing_allocator,
     };
 
-    try testing.expectEqual(point, try decoder.parse(Point));
+    try testing.expectEqual(point, decoder.parse_tuple(Point));
 }
 
 fn parse_struct(self: Decoder, comptime T: type) Error!T {
@@ -206,7 +208,7 @@ test parse_struct {
         .allocator = testing.failing_allocator,
     };
 
-    try testing.expectEqual(point, try decoder.parse(Point));
+    try testing.expectEqual(point, decoder.parse_struct(Point));
 }
 
 fn parse_int(self: Decoder, comptime T: type) Error!T {
@@ -328,13 +330,13 @@ test parse_enum {
 
     try erl.encoder.write_any(&buf, Suit.spades);
 
-    const spade = try (Decoder{
+    const decoder = Decoder{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
-    }).parse_enum(Suit);
+    };
 
-    try testing.expectEqual(Suit.spades, spade);
+    try testing.expectEqual(Suit.spades, decoder.parse_enum(Suit));
 }
 
 fn parse_union(self: Decoder, comptime T: type) Error!T {
@@ -473,8 +475,7 @@ test parse_array {
         .allocator = testing.failing_allocator,
     };
 
-    const parsed_numbers = try decoder.parse(@TypeOf(arc_numbers));
-    try testing.expectEqual(arc_numbers, parsed_numbers);
+    try testing.expectEqual(arc_numbers, decoder.parse(@TypeOf(arc_numbers)));
 }
 
 fn parse_bool(self: Decoder) Error!bool {
@@ -502,8 +503,8 @@ test parse_bool {
         .allocator = testing.failing_allocator,
     };
 
-    try testing.expectEqual(true, try decoder.parse(bool));
-    try testing.expectEqual(false, try decoder.parse(bool));
+    try testing.expectEqual(true, decoder.parse(bool));
+    try testing.expectEqual(false, decoder.parse(bool));
 }
 
 pub fn parse(self: Decoder, comptime T: type) Error!T {
