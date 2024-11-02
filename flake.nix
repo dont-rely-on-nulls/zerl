@@ -51,14 +51,19 @@
         zigLatest = pkgs.zig;
         packageName = "zerl";
         packageVersion = "0.0.0";
+
+        # Zig flake helper
+        # Check the flake.nix in zig2nix project for more options:
+        # <https://github.com/Cloudef/zig2nix/blob/master/flake.nix>
         env = zig2nix.outputs.zig-env.${system} {
-          #zig = zig2nix.outputs.packages.${system}.zig.master.bin;
+          # Pick a version for zig, e.g.
+          #   zig = zig2nix.outputs.packages.${system}.zig."0.13.0".bin;
+          #   zig = zig2nix.outputs.packages.${system}.zig.master.bin;
           customRuntimeLibs = [
             pkgs.pkg-config
             erlangLibs
           ];
           customRuntimeDeps = [
-            erlangLibs
           ];
         };
         system-triple = env.lib.zigTripleFromString system;
@@ -72,7 +77,6 @@
         };
       in
       {
-        # TODO: finish this
         # nix build
         packages = rec {
           devenv-up = self.devShells.${system}.default.config.procfileScript;
@@ -82,6 +86,13 @@
           target = env.pkgs.lib.genAttrs env.lib.allTargetTriples (target:
             env.packageForTarget target {
               src = env.pkgs.lib.cleanSource ./.;
+
+              nativeBuildInputs = with env.pkgs; [
+                #erlangLibs
+              ];
+              buildInputs = with env.pkgsForTarget target; [
+                #erlangLibs
+              ];
 
               # Wont be usable from nix tho
               zigPreferMusl = true;
@@ -116,6 +127,7 @@
           apps.test = env.app [ ] "zig build test -- \"$@\"";
         };
 
+        # nix develop
         devShells =
           let
             linuxPkgs = with pkgs; [
@@ -133,7 +145,6 @@
               env = mkEnvVars pkgs erlangLatest erlangLibs;
               buildInputs = with pkgs; [
                 erlangLatest
-                just
                 rebar3
                 zigLatest
               ];
@@ -148,9 +159,7 @@
                   {
                     packages =
                       with pkgs;
-                      [
-                        just
-                      ]
+                      []
                       ++ lib.optionals stdenv.isLinux (linuxPkgs)
                       ++ lib.optionals stdenv.isDarwin darwinPkgs;
 
