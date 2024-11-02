@@ -459,8 +459,9 @@ test parse_union {
     try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
 }
 
-fn parse_slice(self: Decoder, comptime T: type) Error!T {
+fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).Pointer;
+    // TODO: figure out a sensible way to handle non-slices
     comptime assert(type_info.size == .Slice);
 
     var size: c_int = 0;
@@ -498,7 +499,7 @@ fn parse_slice(self: Decoder, comptime T: type) Error!T {
     return slice_buffer;
 }
 
-test parse_slice {
+test parse_pointer {
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
@@ -619,7 +620,7 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
         .Float => self.parse_float(T),
         .Enum => self.parse_enum(T),
         .Union => self.parse_union(T),
-        .Pointer => |info| if (info.size == .Slice) self.parse_slice(T) else unreachable,
+        .Pointer => self.parse_pointer(T),
         .Array => self.parse_array(T),
         .Bool => self.parse_bool(),
         .Void => @compileError("Void is not supported for deserialization"),
