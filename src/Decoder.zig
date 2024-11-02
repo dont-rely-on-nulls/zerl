@@ -418,6 +418,36 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
     return error.unknown_tuple_tag;
 }
 
+test parse_union {
+    const Shape = union(enum) {
+        circle: u32,
+        square: u32,
+        point: void,
+    };
+
+    const circle = Shape{ .circle = 4 };
+    const square = Shape{ .square = 4 };
+
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+    try erl.encoder.write_any(&buf, circle);
+    try erl.encoder.write_any(&buf, square);
+    try erl.encoder.write_any(&buf, Shape.point);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(circle, decoder.parse_union(Shape));
+    try testing.expectEqual(square, decoder.parse_union(Shape));
+    try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
+}
+
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Pointer;
     var value: T = undefined;
