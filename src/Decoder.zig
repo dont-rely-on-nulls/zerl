@@ -129,6 +129,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
     const Key = std.meta.FieldEnum(T);
     const Key_Set = std.EnumSet(Key);
     const total_keys = comptime Key_Set.initFull().count();
+    if (total_keys == 0) @compileError("Cannot parse struct with no fields");
 
     const size: c_int = blk: {
         var size: c_int = 0;
