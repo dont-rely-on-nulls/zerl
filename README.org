@@ -1,6 +1,8 @@
 * Zerl: Making Erlang + Zig communication EZ
+#+html: <a href="https://builtwithnix.org"><img alt="built with nix" src="https://builtwithnix.org/badge.svg" /></a><br>
+#+html: <a href="https://github.com/dont-rely-on-nulls/zerl/actions/workflows/build_zerl.yml"> <img alt="[Build] Client" src="https://github.com/dont-rely-on-nulls/zerl/actions/workflows/build_zerl.yml/badge.svg" /></a>
 
-#+html: <img src="images/logo.png" alt="The Zerl Logo" style="width: 25%;">
+#+html: <p align="center"><img src="images/logo.png" alt="The Zerl Logo" style="width: 25%;"></p>
 
 /WORK IN PROGRESS/
 
@@ -14,4 +16,10 @@ to provide the dependency themselves.
 Please refer to [[doc/types.org][this document]] for how types are translated
 between Zig and Erlang.
 
-See the ~examples/~ directory for some code examples.
+** Examples
+
+See the [[./examples]] directory for some code examples. If you are looking for a
+non-trivial example, check [[https://github.com/Dr-Nekoma/lyceum][Lyceum]], it's a game built around this library.
+
+** Developing
+
