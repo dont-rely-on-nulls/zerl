@@ -360,56 +360,55 @@ test parse_enum {
     };
 
     try testing.expectEqual(Suit.spades, decoder.parse_enum(Suit));
+
 }
 
 fn parse_union(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Union;
-    var value: T = undefined;
+    const Tag = @typeInfo(T).Union.tag_type.?;
+    const fields = @typeInfo(T).Union.fields;
+
     var arity: c_int = 0;
-    var typ: c_int = 0;
+    var type_tag: c_int = 0;
     var _v: c_int = undefined;
     try erl.validate(
         error.could_not_get_type,
-        ei.ei_get_type(self.buf.buff, self.index, &typ, &_v),
+        ei.ei_get_type(self.buf.buff, self.index, &type_tag, &_v),
     );
-    const enum_type = std.meta.Tag(T);
-    if (typ == ei.ERL_ATOM_EXT) {
-        const tuple_name = try self.parse_enum(enum_type);
-        switch (tuple_name) {
-            inline else => |name| {
-                inline for (item.fields) |field| {
+    if (type_tag == ei.ERL_ATOM_EXT) {
+        switch (try self.parse_enum(Tag)) {
+            inline else => |tag| {
+                // TODO: eliminate this loop
+                inline for (fields) |field| {
                     if (field.type == void and comptime std.mem.eql(
                         u8,
                         field.name,
-                        @tagName(name),
+                        @tagName(tag),
                     )) {
-                        value = name;
-                        break;
+                        return tag;
                     }
-                } else return error.invalid_union_tag;
+                }
+                return error.invalid_union_tag;
             },
         }
-        return value;
     } else {
         try erl.validate(
             error.decoding_tuple,
             ei.ei_decode_tuple_header(self.buf.buff, self.index, &arity),
         );
         if (arity != 2) {
+            // TODO: https://github.com/dont-rely-on-nulls/zerl/issues/7
             return error.wrong_arity_for_tuple;
         }
-        const tuple_name = try self.parse_enum(enum_type);
-        switch (tuple_name) {
-            inline else => |name| {
-                inline for (item.fields) |field| {
+        switch (try self.parse_enum(Tag)) {
+            inline else => |tag| {
+                inline for (fields) |field| {
                     if (field.type != void and comptime std.mem.eql(
                         u8,
                         field.name,
-                        @tagName(name),
+                        @tagName(tag),
                     )) {
                         const tuple_value = try self.parse(field.type);
-                        value = @unionInit(T, field.name, tuple_value);
-                        return value;
+                        return @unionInit(T, field.name, tuple_value);
                     }
                 } else return error.failed_to_receive_payload;
             },
