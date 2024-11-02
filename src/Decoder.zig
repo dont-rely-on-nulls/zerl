@@ -272,6 +272,28 @@ fn parse_float(self: Decoder, comptime T: type) Error!T {
     return @floatCast(aux);
 }
 
+test parse_float {
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    try erl.encoder.write_any(&buf, std.math.pi);
+    try erl.encoder.write_any(&buf, std.math.pi);
+    try erl.encoder.write_any(&buf, std.math.pi);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(std.math.pi, decoder.parse(f16));
+    try testing.expectEqual(std.math.pi, decoder.parse(f32));
+    try testing.expectEqual(std.math.pi, decoder.parse(f64));
+}
+
 fn parse_enum(self: Decoder, comptime T: type) Error!T {
     const tag_map, const max_name_length = comptime blk: {
         var tags = std.EnumSet(T).initFull();
