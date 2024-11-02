@@ -18,9 +18,8 @@ pub const Error = std.mem.Allocator.Error || error{
     missing_field_in_struct,
     decoding_double,
     decoding_signed_integer,
-    signed_out_of_bounds,
     decoding_unsigned_integer,
-    unsigned_out_of_bounds,
+    integer_out_of_bounds,
     invalid_tag_to_enum,
     could_not_decode_enum,
     could_not_get_type,
@@ -211,25 +210,52 @@ test parse_struct {
 }
 
 fn parse_int(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Int;
-    var value: T = undefined;
-    if (item.signedness == .signed) {
-        var aux: i64 = undefined;
-        try erl.validate(error.decoding_signed_integer, ei.ei_decode_long(self.buf.buff, self.index, &aux));
-        if (aux <= std.math.maxInt(T) and std.math.minInt(T) <= aux) {
-            value = @intCast(aux);
-            return value;
+    // TODO: support larger integer sizes
+    comptime assert(@bitSizeOf(T) <= @bitSizeOf(c_longlong));
+    const N, const error_tag, const decode =
+        if (@typeInfo(T).Int.signedness == .signed)
+        .{
+            c_longlong,
+            error.decoding_signed_integer,
+            ei.ei_decode_longlong,
         }
-        return error.signed_out_of_bounds;
-    } else {
-        var aux: u64 = undefined;
-        try erl.validate(error.decoding_unsigned_integer, ei.ei_decode_ulong(self.buf.buff, self.index, &aux));
-        if (aux <= std.math.maxInt(T)) {
-            value = @intCast(aux);
-            return value;
-        }
-        return error.unsigned_out_of_bounds;
-    }
+    else
+        .{
+            c_ulonglong,
+            error.decoding_unsigned_integer,
+            ei.ei_decode_ulonglong,
+        };
+
+    var n: N = undefined;
+    try erl.validate(error_tag, decode(self.buf.buff, self.index, &n));
+    return if (std.math.minInt(T) <= n and n <= std.math.maxInt(T))
+        @intCast(n)
+    else
+        error.integer_out_of_bounds;
+}
+
+test parse_int {
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    try erl.encoder.write_any(&buf, 413);
+    try erl.encoder.write_any(&buf, -612);
+    try erl.encoder.write_any(&buf, 1025);
+    try erl.encoder.write_any(&buf, -111111);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.failing_allocator,
+    };
+
+    try testing.expectEqual(413, decoder.parse(u32));
+    try testing.expectEqual(-612, decoder.parse(i32));
+    try testing.expectEqual(error.integer_out_of_bounds, decoder.parse(u8));
+    try testing.expectEqual(error.integer_out_of_bounds, decoder.parse(i8));
 }
 
 fn parse_float(self: Decoder, comptime T: type) Error!T {
