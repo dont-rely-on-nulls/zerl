@@ -619,7 +619,7 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
         .Float => self.parse_float(T),
         .Enum => self.parse_enum(T),
         .Union => self.parse_union(T),
-        .Pointer => self.parse_slice(T),
+        .Pointer => |info| if (info.size == .Slice) self.parse_slice(T) else unreachable,
         .Array => self.parse_array(T),
         .Bool => self.parse_bool(),
         .Void => @compileError("Void is not supported for deserialization"),
