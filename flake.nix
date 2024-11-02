@@ -49,6 +49,8 @@
 
         # Zig shit (Incomplete)
         zigLatest = pkgs.zig;
+        packageName = "zerl";
+        packageVersion = "0.0.0";
         env = zig2nix.outputs.zig-env.${system} {
           #zig = zig2nix.outputs.packages.${system}.zig.master.bin;
           customRuntimeLibs = [
@@ -72,35 +74,30 @@
       {
         # TODO: finish this
         # nix build
-        packages = {
+        packages = rec {
           devenv-up = self.devShells.${system}.default.config.procfileScript;
 
+          # nix build .#target.{zig-target}
+          # e.g. nix build .#target.x86_64-linux-gnu
+          target = env.pkgs.lib.genAttrs env.lib.allTargetTriples (target:
+            env.packageForTarget target {
+              src = env.pkgs.lib.cleanSource ./.;
+
+              # Wont be usable from nix tho
+              zigPreferMusl = true;
+              zigDisableWrap = true;
+          })
+          // pkgs.lib.optionalAttrs (!builtins.pathExists ./build.zig.zon) {
+            pname = packageName;
+            version = packageVersion;
+          };
+
+          # This is almost working
           # nix build
-          default = env.pkgs.target.${system-triple}.override {
+          default = target.${system-triple}.override {
             # Prefer nix friendly settings.
             zigPreferMusl = false;
             zigDisableWrap = false;
-          };
-
-          # nix build .#zerl
-          zerl = env.pkgs.stdenv.mkDerivation {
-            pname = "zerl";
-            version = version;
-            src = env.pkgs.lib.cleanSource ./.;
-
-            nativeBuildInputs = [
-              pkgs.makeBinaryWrapper
-              zigLatest.hook
-            ];
-            buildInputs = [
-              erlangLatest
-            ];
-
-            # Uncomment this to generate .nix from zon
-            # nix run github:Cloudef/zig2nix#zon2nix -- build.zig.zon > zon-deps.nix
-            #postPatch = ''
-            #  ln -s ${pkgs.callPackage ./zon-deps.nix { }} $ZIG_GLOBAL_CACHE_DIR/p
-            #'';
           };
         };
 
