@@ -459,49 +459,46 @@ test parse_union {
     try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
 }
 
-fn parse_pointer(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Pointer;
-    var value: T = undefined;
-    if (item.size != .Slice)
-        return error.unsupported_pointer_type;
+fn parse_slice(self: Decoder, comptime T: type) Error!T {
+    const type_info = @typeInfo(T).Pointer;
+    comptime assert(type_info.size == .Slice);
+
     var size: c_int = 0;
     try erl.validate(
         error.decoding_list_in_pointer_1,
         ei.ei_decode_list_header(self.buf.buff, self.index, &size),
     );
-    const has_sentinel = item.sentinel != null;
-    if (size == 0 and !has_sentinel) {
-        value = &.{};
-    } else {
-        const usize_size: c_uint = @intCast(size);
-        const slice_buffer = if (has_sentinel)
-            try self.allocator.allocSentinel(
-                item.child,
-                usize_size,
-                item.sentinel.?,
-            )
-        else
-            try self.allocator.alloc(
-                item.child,
-                usize_size,
-            );
-        errdefer self.allocator.free(slice_buffer);
-        // TODO: We should deallocate the children
-        for (slice_buffer) |*elem| {
-            elem.* = try self.parse(item.child);
-        }
-        try erl.validate(
-            error.decoding_list_in_pointer_2,
-            ei.ei_decode_list_header(self.buf.buff, self.index, &size),
-        );
-        if (size != 0) return error.decoded_improper_list;
-        value = slice_buffer;
-    }
 
-    return value;
+    const has_sentinel = type_info.sentinel != null;
+    if (size == 0 and !has_sentinel) return &.{};
+
+    const usize_size: c_uint = @intCast(size);
+    const slice_buffer = if (has_sentinel)
+        try self.allocator.allocSentinel(
+            type_info.child,
+            usize_size,
+            type_info.sentinel.?,
+        )
+    else
+        try self.allocator.alloc(
+            type_info.child,
+            usize_size,
+        );
+    errdefer self.allocator.free(slice_buffer);
+
+    // TODO: We should deallocate the children
+    for (slice_buffer) |*elem| {
+        elem.* = try self.parse(type_info.child);
+    }
+    try erl.validate(
+        error.decoding_list_in_pointer_2,
+        ei.ei_decode_list_header(self.buf.buff, self.index, &size),
+    );
+    if (size != 0) return error.decoded_improper_list;
+    return slice_buffer;
 }
 
-test parse_pointer {
+test parse_slice {
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
@@ -622,7 +619,7 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
         .Float => self.parse_float(T),
         .Enum => self.parse_enum(T),
         .Union => self.parse_union(T),
-        .Pointer => self.parse_pointer(T),
+        .Pointer => self.parse_slice(T),
         .Array => self.parse_array(T),
         .Bool => self.parse_bool(),
         .Void => @compileError("Void is not supported for deserialization"),
