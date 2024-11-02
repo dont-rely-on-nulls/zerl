@@ -166,11 +166,9 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             error.could_not_encode_bool,
             ei.ei_x_encode_boolean(buf, @intFromBool(data)),
         ),
-        // TODO: make inline fn to handle this properly
         .ComptimeInt => write_any(
             buf,
-            // not sure if this conditional actually compiles
-            @as(if (0 <= data) u64 else i64, data),
+            @as(if (0 <= data) c_ulonglong else c_longlong, data),
         ),
         .ComptimeFloat => write_any(buf, @as(f64, data)),
         .Int => |info| if (@bitSizeOf(c_longlong) < info.bits)
