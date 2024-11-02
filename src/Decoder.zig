@@ -361,6 +361,16 @@ test parse_enum {
 
     try testing.expectEqual(Suit.spades, decoder.parse_enum(Suit));
 
+    // Union tags with void payload must serialize as atoms, and
+    // therefore have the same representation as enum values
+    const Union_Suit = union(Suit) {
+        diamonds: void,
+        clubs: void,
+        hearts: void,
+        spades: void,
+    };
+    try erl.encoder.write_any(&buf, Union_Suit.spades);
+    try testing.expectEqual(Suit.spades, decoder.parse_enum(Suit));
 }
 
 fn parse_union(self: Decoder, comptime T: type) Error!T {
