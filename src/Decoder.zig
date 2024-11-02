@@ -501,6 +501,41 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     return value;
 }
 
+test parse_pointer {
+    var buf: ei.ei_x_buff = undefined;
+    try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
+    defer _ = ei.ei_x_free(&buf);
+
+    var index: c_int = 0;
+
+    const Character = enum {
+        rogue,
+        mage,
+        healer,
+        warrior,
+    };
+    const party = [_]Character{
+        .warrior,
+        .rogue,
+        .mage,
+        .healer,
+        .warrior,
+    };
+
+    try erl.encoder.write_any(&buf, &party);
+
+    const decoder = Decoder{
+        .buf = &buf,
+        .index = &index,
+        .allocator = testing.allocator,
+    };
+
+    const parsed_party = try decoder.parse([]Character);
+    defer testing.allocator.free(parsed_party);
+
+    try testing.expectEqualSlices(Character, &party, parsed_party);
+}
+
 fn parse_array(self: Decoder, comptime T: type) Error!T {
     const item = @typeInfo(T).Array;
     var value: T = undefined;
