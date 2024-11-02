@@ -49,22 +49,19 @@
 
         # Zig shit (Incomplete)
         zigLatest = pkgs.zig;
-        raylib = pkgs.raylib;
         env = zig2nix.outputs.zig-env.${system} {
           #zig = zig2nix.outputs.packages.${system}.zig.master.bin;
           customRuntimeLibs = [
             pkgs.pkg-config
             erlangLibs
-            raylib
           ];
           customRuntimeDeps = [
             erlangLibs
-            raylib
           ];
         };
         system-triple = env.lib.zigTripleFromString system;
 
-        mkEnvVars = pkgs: erlangLatest: erlangLibs: raylib: {
+        mkEnvVars = pkgs: erlangLatest: erlangLibs: {
           LOCALE_ARCHIVE = pkgs.lib.optionalString pkgs.stdenv.isLinux "${pkgs.glibcLocales}/lib/locale/locale-archive";
           LANG = "en_US.UTF-8";
           # https://www.erlang.org/doc/man/kernel_app.html
@@ -78,8 +75,15 @@
         packages = {
           devenv-up = self.devShells.${system}.default.config.procfileScript;
 
+          # nix build
+          default = env.pkgs.target.${system-triple}.override {
+            # Prefer nix friendly settings.
+            zigPreferMusl = false;
+            zigDisableWrap = false;
+          };
+
           # nix build .#zerl
-          zerl = pkgs.stdenv.mkDerivation {
+          zerl = env.pkgs.stdenv.mkDerivation {
             pname = "zerl";
             version = version;
             src = env.pkgs.lib.cleanSource ./.;
@@ -119,13 +123,6 @@
           let
             linuxPkgs = with pkgs; [
               inotify-tools
-              xorg.libX11
-              xorg.libXrandr
-              xorg.libXinerama
-              xorg.libXcursor
-              xorg.libXi
-              xorg.libXi
-              libGL
             ];
             darwinPkgs = with pkgs.darwin.apple_sdk.frameworks; [
               CoreFoundation
@@ -136,7 +133,7 @@
             # `nix develop .#ci`
             # reduce the number of packages to the bare minimum needed for CI
             ci = pkgs.mkShell {
-              env = mkEnvVars pkgs erlangLatest erlangLibs raylib;
+              env = mkEnvVars pkgs erlangLatest erlangLibs;
               buildInputs = with pkgs; [
                 erlangLatest
                 just
@@ -170,12 +167,11 @@
                       package = zigLatest;
                     };
 
-                    env = mkEnvVars pkgs erlangLatest erlangLibs raylib;
+                    env = mkEnvVars pkgs erlangLatest erlangLibs;
 
                     scripts = {
-                      build.exec = "just build";
-                      client.exec = "just test";
-                      server.exec = "just server";
+                      build.exec = "zig build";
+                      test.exec = "zig build test";
                     };
 
                     enterShell = ''
