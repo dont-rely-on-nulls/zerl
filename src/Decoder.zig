@@ -88,13 +88,15 @@ test parse_string {
 fn parse_tuple(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).Struct;
     comptime assert(type_info.is_tuple);
-    var value: T = undefined;
+
     var size: c_int = 0;
     try erl.validate(
         error.decoding_tuple,
         ei.ei_decode_tuple_header(self.buf.buff, self.index, &size),
     );
     if (type_info.fields.len != size) return error.wrong_tuple_size;
+
+    var value: T = undefined;
     inline for (&value) |*elem| {
         elem.* = try self.parse(@TypeOf(elem.*));
     }
@@ -125,11 +127,11 @@ test parse_tuple {
 
 fn parse_struct(self: Decoder, comptime T: type) Error!T {
     comptime assert(!@typeInfo(T).Struct.is_tuple);
+    const struct_fields_count = @typeInfo(T).Struct.fields.len;
+    comptime assert(struct_fields_count != 0);
 
     const Key = std.meta.FieldEnum(T);
     const Key_Set = std.EnumSet(Key);
-    const total_keys = comptime Key_Set.initFull().count();
-    if (total_keys == 0) @compileError("Cannot parse struct with no fields");
 
     const size: c_int = blk: {
         var size: c_int = 0;
@@ -139,7 +141,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
         );
         break :blk size;
     };
-    if (total_keys < size) return error.too_many_map_entries;
+    if (struct_fields_count < size) return error.too_many_map_entries;
 
     var value: T = undefined;
     var present_keys = Key_Set.initEmpty();
@@ -299,9 +301,8 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
         var tags = std.EnumSet(T).initFull();
         var max_name_length = 0;
         const enum_fields = @typeInfo(T).Enum.fields;
-        if (enum_fields.len == 0) {
-            @compileError("Impossible to parse enum with no fields");
-        }
+        assert(enum_fields.len != 0);
+
         for (enum_fields) |field| {
             if (ei.MAXATOMLEN < field.name.len) {
                 tags.remove(@enumFromInt(field.value));
@@ -310,7 +311,7 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
             }
         }
         if (tags.count() == 0) {
-            @compileError("All enum tags longer than max atom length");
+            @compileError("All tag names longer than max atom length");
         }
         var tag_map: [tags.count()]struct { []const u8, T } = undefined;
         var tag_iter = tags.iterator();
@@ -376,6 +377,7 @@ test parse_enum {
 fn parse_union(self: Decoder, comptime T: type) Error!T {
     const Tag = @typeInfo(T).Union.tag_type.?;
     const fields = @typeInfo(T).Union.fields;
+    comptime assert(fields.len != 0);
 
     var arity: c_int = 0;
     var type_tag: c_int = 0;
