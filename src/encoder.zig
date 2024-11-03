@@ -43,7 +43,6 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 .Float,
                 .Enum,
                 .Pointer,
-                // not sure if these are actually reachable
                 .EnumLiteral,
                 .ComptimeInt,
                 .ComptimeFloat,
@@ -52,14 +51,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     buf,
                     @as([]const array_info.child, data),
                 ),
-                .Union => |union_info| switch (@as(
-                    if (union_info.tag_type) |tag_type|
-                        tag_type
-                    else
-                        // TODO: consider sending untagged unions
-                        @compileError("untagged unions are unsupported"),
-                    data.*,
-                )) {
+                .Union => |union_info| switch (@as(union_info.tag_type.?, data.*)) {
                     inline else => |tag| {
                         inline for (union_info.fields) |field| {
                             if (comptime std.mem.eql(
@@ -85,14 +77,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                         error.could_not_encode_tuple,
                         ei.ei_x_encode_tuple_header(buf, struct_info.fields.len),
                     );
-                    // TODO: check if we can use an inline for instead
-                    comptime var i = 0;
-                    inline while (i < struct_info.fields.len) : (i += 1) {
-                        try write_any(buf, @field(
-                            data,
-                            std.fmt.comptimePrint("{}", .{i}),
-                        ));
-                    }
+                    inline for (data) |field| try write_any(buf, field);
                 } else {
                     const mandatory_fields = comptime blk: {
                         var count = 0;
