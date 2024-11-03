@@ -1,0 +1,49 @@
+name: "[Build] Zerl"
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - examples/**
+      - flake.nix
+      - flake.lock
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - examples/**
+      - flake.nix
+      - flake.lock
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+        with:
+          # Mostly to avoid GitHub rate limiting
+          extra_nix_config: |
+            access-tokens = github.com=${{ github.token }}
+
+      - name: Install Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: "[Build] Zerl"
+        run: |
+          nix develop .#ci --impure -c zig build
+
+      - name: "[Test] Zerl"
+        run: |
+          nix develop .#ci --impure -c zig build test
