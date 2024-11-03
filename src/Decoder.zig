@@ -73,7 +73,7 @@ test parse_string {
     var index: c_int = 0;
     try erl.encoder.write_any(&buf, written);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.allocator,
@@ -107,7 +107,7 @@ test parse_tuple {
     // We need the comptime field here in 0.13.0 because of a bug.
     // Problem is fixed in zig master.
     const Point = struct { comptime enum { point } = .point, i32, i32 };
-    const point = Point{ .point, 413, 612 };
+    const point: Point = .{ .point, 413, 612 };
 
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
@@ -116,7 +116,7 @@ test parse_tuple {
     var index: c_int = 0;
     try erl.encoder.write_any(&buf, point);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -195,24 +195,24 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
 
 test parse_struct {
     const Point = struct { x: i32, y: i32 };
-    const point = Point{ .x = 413, .y = 612 };
+    const point: Point = .{ .x = 413, .y = 612 };
 
     const Forcing_No_Default = struct { opt: ?u32, def: ?u32 };
     const Crazy = struct { opt: ?u32, def: u32 = 42 };
 
-    const empty = Forcing_No_Default{ .opt = null, .def = null };
+    const empty: Forcing_No_Default = .{ .opt = null, .def = null };
 
-    const no_optional = Crazy{ .opt = null };
+    const no_optional: Crazy = .{ .opt = null };
 
-    const optional_zero = Crazy{ .opt = 0 };
-    const default_zero = Crazy{ .def = 0, .opt = null };
+    const optional_zero: Crazy = .{ .opt = 0 };
+    const default_zero: Crazy = .{ .def = 0, .opt = null };
 
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
 
     var index: c_int = 0;
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -268,7 +268,7 @@ test parse_int {
     try erl.encoder.write_any(&buf, 1025);
     try erl.encoder.write_any(&buf, -111111);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -302,7 +302,7 @@ test parse_float {
     try erl.encoder.write_any(&buf, std.math.pi);
     try erl.encoder.write_any(&buf, std.math.pi);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -371,7 +371,7 @@ test parse_enum {
 
     try erl.encoder.write_any(&buf, Suit.spades);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -453,8 +453,8 @@ test parse_union {
         point: void,
     };
 
-    const circle = Shape{ .circle = 4 };
-    const square = Shape{ .square = 4 };
+    const circle: Shape = .{ .circle = 4 };
+    const square: Shape = .{ .square = 4 };
 
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
@@ -465,7 +465,7 @@ test parse_union {
     try erl.encoder.write_any(&buf, square);
     try erl.encoder.write_any(&buf, Shape.point);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -531,7 +531,7 @@ test parse_pointer {
 
     try erl.encoder.write_any(&buf, &party);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.allocator,
@@ -575,7 +575,7 @@ test parse_array {
 
     try erl.encoder.write_any(&buf, arc_numbers);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
@@ -603,7 +603,7 @@ test parse_bool {
     try erl.encoder.write_any(&buf, true);
     try erl.encoder.write_any(&buf, false);
 
-    const decoder = Decoder{
+    const decoder: Decoder = .{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
