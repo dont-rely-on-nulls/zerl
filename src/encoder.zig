@@ -2,12 +2,14 @@ const std = @import("std");
 const erl = @import("erlang.zig");
 
 const ei = erl.ei;
+const assert = std.debug.assert;
 
 pub const Error = error{
     could_not_encode_pid,
     could_not_encode_binary,
     could_not_encode_bool,
     could_not_encode_map,
+    could_not_encode_optional,
     could_not_encode_atom,
     could_not_encode_tuple,
     could_not_encode_float,
@@ -138,6 +140,13 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     }
 }
 
+fn write_optional(buf: *ei.ei_x_buff, data: anytype) Error!void {
+    comptime assert(@typeInfo(@TypeOf(data)) == .Optional);
+    if (data) |payload| {
+        return write_any(buf, payload);
+    } else return error.could_not_encode_optional;
+}
+
 pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
 
@@ -200,6 +209,7 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
         },
         .Array, .Struct, .Union => write_any(buf, &data),
         .Pointer => write_pointer(buf, data),
+        .Optional => write_optional(buf, data),
         .NoReturn => unreachable,
         else => @compileError("unsupported type"),
     };

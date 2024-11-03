@@ -151,7 +151,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
                 const current_field = &@field(value, @tagName(key));
                 const field_type = @TypeOf(current_field.*);
                 if (@typeInfo(field_type) == .Optional) {
-                    current_field.* = try self.parse(field_type.Optional.child);
+                    current_field.* = try self.parse(@typeInfo(field_type).Optional.child);
                 } else {
                     current_field.* = try self.parse(field_type);
                 }
@@ -194,24 +194,41 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_struct {
-    // TODO: optional fields and fields with default values
     const Point = struct { x: i32, y: i32 };
     const point = Point{ .x = 413, .y = 612 };
+
+    const Forcing_No_Default = struct { opt: ?u32, def: ?u32 };
+    const Crazy = struct { opt: ?u32, def: u32 = 42 };
+
+    const empty = Forcing_No_Default{ .opt = null, .def = null };
+
+    const no_optional = Crazy{ .opt = null };
+
+    const optional_zero = Crazy{ .opt = 0 };
+    const default_zero = Crazy{ .def = 0, .opt = null };
 
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
 
     var index: c_int = 0;
-    try erl.encoder.write_any(&buf, point);
-
     const decoder = Decoder{
         .buf = &buf,
         .index = &index,
         .allocator = testing.failing_allocator,
     };
 
+    try erl.encoder.write_any(&buf, point);
     try testing.expectEqual(point, decoder.parse_struct(Point));
+
+    try erl.encoder.write_any(&buf, empty);
+    try testing.expectEqual(no_optional, decoder.parse_struct(Crazy));
+
+    try erl.encoder.write_any(&buf, optional_zero);
+    try testing.expectEqual(optional_zero, decoder.parse_struct(Crazy));
+
+    try erl.encoder.write_any(&buf, default_zero);
+    try testing.expectEqual(default_zero, decoder.parse_struct(Crazy));
 }
 
 fn parse_int(self: Decoder, comptime T: type) Error!T {
