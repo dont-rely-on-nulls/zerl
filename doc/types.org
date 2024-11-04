@@ -73,7 +73,7 @@ can only receive tuples of length 2. This is not very convenient when dealing
 with Erlang records (which desugar to tagged tuples), but we do have plans to
 improve this area.
 
-Note that tagged union members with a payload of `void` are mapped to atoms
+Note that tagged union members with a payload of ~void~ are mapped to atoms
 instead, because it is not idiomatic in Erlang to pass around Tuples of one item.
 
 There are no plans to support Zig untagged unions.
