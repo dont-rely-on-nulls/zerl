@@ -16,6 +16,17 @@ to provide the dependency themselves.
 Please refer to [[doc/types.org][this document]] for how types are translated
 between Zig and Erlang.
 
+** Roadmap
+
+*** 0.1 [0/2]
+- [ ] Add unit tests for the decoder and encoder.
+- [ ] Allow parsing tagged tuples with multiple items from Erlang into Zig tagged unions.
+
+*** Before 1.0 [0/3]
+- [ ] Expose the timeout version of the networking functions from ~erl_interface~.
+- [ ] Remove all hidden allocations from the library.
+- [ ] Either package ~erl_interface~ and add it to ~build.zig.zon~, or drop the dependency entirely.
+
 ** Examples
 
 See the [[./examples]] directory for some code examples. If you are looking for a
