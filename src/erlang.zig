@@ -103,7 +103,10 @@ pub const Node = struct {
     }
 };
 
-pub fn validate(error_tag: anytype, result_value: c_int) !void {
+pub fn validate(
+    comptime error_tag: anytype,
+    result_value: c_int,
+) @TypeOf(error_tag)!void {
     if (result_value < 0) {
         return error_tag;
     }
@@ -121,4 +124,9 @@ pub fn establish_connection(ec: *Node, process_name: []const u8, ip: []const u8)
 
 pub fn With_Pid(comptime T: type) type {
     return std.meta.Tuple(&.{ ei.erlang_pid, T });
+}
+
+test {
+    _ = encoder;
+    _ = Decoder;
 }

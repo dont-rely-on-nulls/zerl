@@ -1,12 +1,13 @@
-pub const ei = @cImport({
-    @cInclude("ei.h");
-});
-const erl = @import("erlang.zig");
 const std = @import("std");
+const erl = @import("erlang.zig");
+
+const ei = erl.ei;
+const assert = std.debug.assert;
 
 pub const Error = error{
     could_not_encode_pid,
     could_not_encode_binary,
+    could_not_encode_bool,
     could_not_encode_map,
     could_not_encode_atom,
     could_not_encode_tuple,
@@ -41,7 +42,6 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 .Float,
                 .Enum,
                 .Pointer,
-                // not sure if these are actually reachable
                 .EnumLiteral,
                 .ComptimeInt,
                 .ComptimeFloat,
@@ -50,14 +50,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     buf,
                     @as([]const array_info.child, data),
                 ),
-                .Union => |union_info| switch (@as(
-                    if (union_info.tag_type) |tag_type|
-                        tag_type
-                    else
-                        // TODO: consider sending untagged unions
-                        @compileError("untagged unions are unsupported"),
-                    data.*,
-                )) {
+                .Union => |union_info| switch (@as(union_info.tag_type.?, data.*)) {
                     inline else => |tag| {
                         inline for (union_info.fields) |field| {
                             if (comptime std.mem.eql(
@@ -83,14 +76,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                         error.could_not_encode_tuple,
                         ei.ei_x_encode_tuple_header(buf, struct_info.fields.len),
                     );
-                    // TODO: check if we can use an inline for instead
-                    comptime var i = 0;
-                    inline while (i < struct_info.fields.len) : (i += 1) {
-                        try write_any(buf, @field(
-                            data,
-                            std.fmt.comptimePrint("{}", .{i}),
-                        ));
-                    }
+                    inline for (data) |field| try write_any(buf, field);
                 } else {
                     const mandatory_fields = comptime blk: {
                         var count = 0;
@@ -116,7 +102,8 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     );
                     inline for (struct_info.fields) |field| {
                         const payload = @field(data, field.name);
-                        if (@typeInfo(@TypeOf(payload)) != .Optional or
+                        const payload_info = @typeInfo(@TypeOf(payload));
+                        if (payload_info != .Optional or
                             payload != null)
                         {
                             try erl.validate(
@@ -127,7 +114,11 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                                     @intCast(field.name.len),
                                 ),
                             );
-                            try write_any(buf, payload);
+                            const actual_payload = if (payload_info == .Optional)
+                                payload.?
+                            else
+                                payload;
+                            try write_any(buf, actual_payload);
                         }
                     }
                 },
@@ -166,11 +157,9 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             error.could_not_encode_bool,
             ei.ei_x_encode_boolean(buf, @intFromBool(data)),
         ),
-        // TODO: make inline fn to handle this properly
         .ComptimeInt => write_any(
             buf,
-            // not sure if this conditional actually compiles
-            @as(if (0 <= data) u64 else i64, data),
+            @as(if (0 <= data) c_ulonglong else c_longlong, data),
         ),
         .ComptimeFloat => write_any(buf, @as(f64, data)),
         .Int => |info| if (@bitSizeOf(c_longlong) < info.bits)

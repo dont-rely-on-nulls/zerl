@@ -21,7 +21,7 @@ pub fn main() !void {
     try stderr.print("Connected.\n", .{});
 
     const self = try node.self();
-    const message = zerl.With_Pid([]const u8){ self.*, "Hello, World!" };
+    const message: zerl.With_Pid([]const u8) = .{ self.*, "Hello, World!" };
     try node.send("echo", message);
 
     const reply = try node.receive(Reply, arena);
