@@ -18,8 +18,8 @@ between Zig and Erlang.
 
 ** Roadmap
 
-*** 0.1 [0/2]
-- [ ] Add unit tests for the decoder and encoder.
+*** 0.1 [1/2]
+- [X] Add unit tests for the decoder and encoder.
 - [ ] Allow parsing tagged tuples with multiple items from Erlang into Zig tagged unions.
 
 *** Before 1.0 [0/3]
