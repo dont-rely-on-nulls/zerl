@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) !void {
         .link_libc = true,
     });
 
-    const ei_options = .{
+    const ei_options: std.Build.Module.LinkSystemLibraryOptions = .{
         .needed = true,
         .preferred_link_mode = .static,
     };

@@ -86,7 +86,7 @@ test parse_string {
 }
 
 fn parse_tuple(self: Decoder, comptime T: type) Error!T {
-    const type_info = @typeInfo(T).Struct;
+    const type_info = @typeInfo(T).@"struct";
     comptime assert(type_info.is_tuple);
 
     var size: c_int = 0;
@@ -126,8 +126,8 @@ test parse_tuple {
 }
 
 fn parse_struct(self: Decoder, comptime T: type) Error!T {
-    comptime assert(!@typeInfo(T).Struct.is_tuple);
-    const struct_fields_count = @typeInfo(T).Struct.fields.len;
+    comptime assert(!@typeInfo(T).@"struct".is_tuple);
+    const struct_fields_count = @typeInfo(T).@"struct".fields.len;
     comptime assert(struct_fields_count != 0);
 
     const Key = std.meta.FieldEnum(T);
@@ -150,8 +150,8 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
             inline else => |key| {
                 const current_field = &@field(value, @tagName(key));
                 const field_type = @TypeOf(current_field.*);
-                if (@typeInfo(field_type) == .Optional) {
-                    current_field.* = try self.parse(@typeInfo(field_type).Optional.child);
+                if (@typeInfo(field_type) == .optional) {
+                    current_field.* = try self.parse(@typeInfo(field_type).optional.child);
                 } else {
                     current_field.* = try self.parse(field_type);
                 }
@@ -167,7 +167,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
         switch (key_rt) {
             inline else => |key| {
                 const field = comptime blk: {
-                    for (@typeInfo(T).Struct.fields) |field| {
+                    for (@typeInfo(T).@"struct".fields) |field| {
                         if (std.mem.eql(u8, field.name, @tagName(key)))
                             break :blk field;
                     }
@@ -178,7 +178,7 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
                         *const field.type,
                         @alignCast(@ptrCast(default)),
                     ).*;
-                } else if (@typeInfo(field.type) == .Optional) {
+                } else if (@typeInfo(field.type) == .optional) {
                     current_field.* = null;
                 } else {
                     std.log.err("[zerl] missing field in struct {s}: {s}\n", .{
@@ -235,7 +235,7 @@ fn parse_int(self: Decoder, comptime T: type) Error!T {
     // TODO: support larger integer sizes
     comptime assert(@bitSizeOf(T) <= @bitSizeOf(c_longlong));
     const N, const error_tag, const decode =
-        if (@typeInfo(T).Int.signedness == .signed)
+        if (@typeInfo(T).int.signedness == .signed)
         .{
             c_longlong,
             error.decoding_signed_integer,
@@ -281,7 +281,7 @@ test parse_int {
 }
 
 fn parse_float(self: Decoder, comptime T: type) Error!T {
-    comptime assert(@typeInfo(T) == .Float);
+    comptime assert(@typeInfo(T) == .float);
     var aux: f64 = undefined;
     try erl.validate(error.decoding_double, ei.ei_decode_double(
         self.buf.buff,
@@ -317,7 +317,7 @@ fn parse_enum(self: Decoder, comptime T: type) Error!T {
     const tag_map, const max_name_length = comptime blk: {
         var tags = std.EnumSet(T).initFull();
         var max_name_length = 0;
-        const enum_fields = @typeInfo(T).Enum.fields;
+        const enum_fields = @typeInfo(T).@"enum".fields;
         assert(enum_fields.len != 0);
 
         for (enum_fields) |field| {
@@ -392,8 +392,8 @@ test parse_enum {
 }
 
 fn parse_union(self: Decoder, comptime T: type) Error!T {
-    const Tag = @typeInfo(T).Union.tag_type.?;
-    const fields = @typeInfo(T).Union.fields;
+    const Tag = @typeInfo(T).@"union".tag_type.?;
+    const fields = @typeInfo(T).@"union".fields;
     comptime assert(fields.len != 0);
 
     var arity: c_int = 0;
@@ -477,7 +477,7 @@ test parse_union {
 }
 
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
-    const type_info = @typeInfo(T).Pointer;
+    const type_info = @typeInfo(T).pointer;
     // TODO: figure out a sensible way to handle non-slices
     comptime assert(type_info.size == .Slice);
 
@@ -544,7 +544,7 @@ test parse_pointer {
 }
 
 fn parse_array(self: Decoder, comptime T: type) Error!T {
-    const item = @typeInfo(T).Array;
+    const item = @typeInfo(T).array;
     var value: T = undefined;
     var size: c_int = 0;
     try erl.validate(
@@ -624,15 +624,15 @@ pub fn parse(self: Decoder, comptime T: type) Error!T {
         );
         break :blk value;
     } else switch (@typeInfo(T)) {
-        .Struct => |info| (if (info.is_tuple) parse_tuple else parse_struct)(self, T),
-        .Int => self.parse_int(T),
-        .Float => self.parse_float(T),
-        .Enum => self.parse_enum(T),
-        .Union => self.parse_union(T),
-        .Pointer => self.parse_pointer(T),
-        .Array => self.parse_array(T),
-        .Bool => self.parse_bool(),
-        .Void => @compileError("Void is not supported for deserialization"),
+        .@"struct" => |info| (if (info.is_tuple) parse_tuple else parse_struct)(self, T),
+        .int => self.parse_int(T),
+        .float => self.parse_float(T),
+        .@"enum" => self.parse_enum(T),
+        .@"union" => self.parse_union(T),
+        .pointer => self.parse_pointer(T),
+        .array => self.parse_array(T),
+        .bool => self.parse_bool(),
+        .void => @compileError("Void is not supported for deserialization"),
         else => @compileError("Unsupported type in deserialization"),
     };
 }

@@ -20,7 +20,7 @@ pub const Error = error{
 
 fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
-    const info = @typeInfo(Data).Pointer;
+    const info = @typeInfo(Data).pointer;
     switch (info.size) {
         .Many, .C => @compileError("unsupported pointer size"),
         .Slice => {
@@ -37,20 +37,20 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
         .One => {
             const Child = info.child;
             switch (@typeInfo(Child)) {
-                .Bool,
-                .Int,
-                .Float,
-                .Enum,
-                .Pointer,
-                .EnumLiteral,
-                .ComptimeInt,
-                .ComptimeFloat,
+                .bool,
+                .int,
+                .float,
+                .@"enum",
+                .pointer,
+                .enum_literal,
+                .comptime_int,
+                .comptime_float,
                 => try write_any(buf, data.*),
-                .Array => |array_info| try write_pointer(
+                .array => |array_info| try write_pointer(
                     buf,
                     @as([]const array_info.child, data),
                 ),
-                .Union => |union_info| switch (@as(union_info.tag_type.?, data.*)) {
+                .@"union" => |union_info| switch (@as(union_info.tag_type.?, data.*)) {
                     inline else => |tag| {
                         inline for (union_info.fields) |field| {
                             if (comptime std.mem.eql(
@@ -71,7 +71,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                         }
                     },
                 },
-                .Struct => |struct_info| if (struct_info.is_tuple) {
+                .@"struct" => |struct_info| if (struct_info.is_tuple) {
                     try erl.validate(
                         error.could_not_encode_tuple,
                         ei.ei_x_encode_tuple_header(buf, struct_info.fields.len),
@@ -82,7 +82,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                         var count = 0;
                         for (struct_info.fields) |field| {
                             const field_info = @typeInfo(field.type);
-                            if (field_info != .Optional) count += 1;
+                            if (field_info != .optional) count += 1;
                         }
                         break :blk count;
                     };
@@ -90,7 +90,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     inline for (struct_info.fields) |field| {
                         const field_info = @typeInfo(field.type);
                         const payload = @field(data, field.name);
-                        if (field_info == .Optional) {
+                        if (field_info == .optional) {
                             if (payload != null) {
                                 present_fields += 1;
                             }
@@ -103,7 +103,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                     inline for (struct_info.fields) |field| {
                         const payload = @field(data, field.name);
                         const payload_info = @typeInfo(@TypeOf(payload));
-                        if (payload_info != .Optional or
+                        if (payload_info != .optional or
                             payload != null)
                         {
                             try erl.validate(
@@ -114,7 +114,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                                     @intCast(field.name.len),
                                 ),
                             );
-                            const actual_payload = if (payload_info == .Optional)
+                            const actual_payload = if (payload_info == .optional)
                                 payload.?
                             else
                                 payload;
@@ -122,7 +122,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                         }
                     }
                 },
-                .NoReturn => unreachable,
+                .noreturn => unreachable,
                 else => @compileError("unsupported type"),
             }
         },
@@ -153,16 +153,16 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
             ei.ei_x_encode_string_len(buf, data.ptr, @intCast(data.len)),
         )
     else switch (@typeInfo(Data)) {
-        .Bool => erl.validate(
+        .bool => erl.validate(
             error.could_not_encode_bool,
             ei.ei_x_encode_boolean(buf, @intFromBool(data)),
         ),
-        .ComptimeInt => write_any(
+        .comptime_int => write_any(
             buf,
             @as(if (0 <= data) c_ulonglong else c_longlong, data),
         ),
-        .ComptimeFloat => write_any(buf, @as(f64, data)),
-        .Int => |info| if (@bitSizeOf(c_longlong) < info.bits)
+        .comptime_float => write_any(buf, @as(f64, data)),
+        .int => |info| if (@bitSizeOf(c_longlong) < info.bits)
             @compileError("Integer too large")
         else if (info.signedness == .signed)
             erl.validate(
@@ -175,23 +175,23 @@ pub fn write_any(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ei.ei_x_encode_ulonglong(buf, data),
             ),
 
-        .Float => |info| if (65 <= info.bits)
+        .float => |info| if (65 <= info.bits)
             @compileError("Float too large")
         else
             erl.validate(
                 error.could_not_encode_float,
                 ei.ei_x_encode_double(buf, data),
             ),
-        .Enum, .EnumLiteral => blk: {
+        .@"enum", .enum_literal => blk: {
             const name = @tagName(data);
             break :blk erl.validate(
                 error.could_not_encode_atom,
                 ei.ei_x_encode_atom_len(buf, name.ptr, @intCast(name.len)),
             );
         },
-        .Array, .Struct, .Union => write_any(buf, &data),
-        .Pointer => write_pointer(buf, data),
-        .NoReturn => unreachable,
+        .array, .@"struct", .@"union" => write_any(buf, &data),
+        .pointer => write_pointer(buf, data),
+        .noreturn => unreachable,
         else => @compileError("unsupported type"),
     };
 }
