@@ -6,9 +6,11 @@ pub fn build(b: *std.Build) !void {
 
     const client = b.addExecutable(.{
         .name = "hello",
-        .root_source_file = b.path("hello.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("hello.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     b.installArtifact(client);
 
