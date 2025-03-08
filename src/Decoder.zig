@@ -173,11 +173,8 @@ fn parse_struct(self: Decoder, comptime T: type) Error!T {
                     }
                 };
                 const current_field = &@field(value, field.name);
-                if (field.default_value) |default| {
-                    current_field.* = @as(
-                        *const field.type,
-                        @alignCast(@ptrCast(default)),
-                    ).*;
+                if (field.defaultValue()) |default| {
+                    current_field.* = default;
                 } else if (@typeInfo(field.type) == .optional) {
                     current_field.* = null;
                 } else {
@@ -479,7 +476,7 @@ test parse_union {
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).pointer;
     // TODO: figure out a sensible way to handle non-slices
-    comptime assert(type_info.size == .Slice);
+    comptime assert(type_info.size == .@"slice");
 
     var size: c_int = 0;
     try erl.validate(
@@ -487,10 +484,10 @@ fn parse_pointer(self: Decoder, comptime T: type) Error!T {
         ei.ei_decode_list_header(self.buf.buff, self.index, &size),
     );
 
-    if (size == 0 and type_info.sentinel == null) return &.{};
+    if (size == 0 and type_info.sentinel() == null) return &.{};
 
     const usize_size: c_uint = @intCast(size);
-    const slice_buffer = try if (type_info.sentinel) |sentinel|
+    const slice_buffer = try if (type_info.sentinel()) |sentinel|
         self.allocator.allocSentinel(type_info.child, usize_size, sentinel)
     else
         self.allocator.alloc(type_info.child, usize_size);

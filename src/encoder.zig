@@ -22,8 +22,8 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const Data = @TypeOf(data);
     const info = @typeInfo(Data).pointer;
     switch (info.size) {
-        .Many, .C => @compileError("unsupported pointer size"),
-        .Slice => {
+        .many, .c => @compileError("unsupported pointer size"),
+        .@"slice" => {
             try erl.validate(
                 error.could_not_encode_list_head,
                 ei.ei_x_encode_list_header(buf, @bitCast(data.len)),
@@ -34,7 +34,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ei.ei_x_encode_list_header(buf, 0),
             );
         },
-        .One => {
+        .one => {
             const Child = info.child;
             switch (@typeInfo(Child)) {
                 .bool,
