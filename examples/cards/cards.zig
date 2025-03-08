@@ -40,7 +40,7 @@ const Message = union(enum) {
     bye: void,
 };
 
-const Message_Tag = @typeInfo(Message).Union.tag_type.?;
+const Message_Tag = @typeInfo(Message).@"union".tag_type.?;
 
 const Dealer_Error = enum {
     unknown_message,
@@ -59,9 +59,9 @@ const Reply = union(enum) {
 const deck: [52]Card = blk: {
     // This just builds an array containing one of each card
     var cards: [4][13]Card = undefined;
-    for (@typeInfo(Suit).Enum.fields, 0..) |suit_field, suit_index| {
+    for (@typeInfo(Suit).@"enum".fields, 0..) |suit_field, suit_index| {
         const suit: Suit = @enumFromInt(suit_field.value);
-        for (@typeInfo(Value).Enum.fields, 0..) |value, value_index| {
+        for (@typeInfo(Value).@"enum".fields, 0..) |value, value_index| {
             cards[suit_index][value_index] = .{ .card, @enumFromInt(value.value), suit };
         }
     }

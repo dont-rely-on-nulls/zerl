@@ -1,7 +1,8 @@
 .{
-    .name = "zerl-cards-example",
+    .name = .zerl_cards_example,
+    .fingerprint = 0xdd0ba34acf936d5b,
     .version = "0.0.0",
-    .minimum_zig_version = "0.13.0",
+    .minimum_zig_version = "0.14.0",
     .dependencies = .{
         .zerl = .{
             .path = "../../",
