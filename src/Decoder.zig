@@ -231,17 +231,17 @@ fn parse_int(self: Decoder, comptime T: type) Error!T {
     comptime assert(@bitSizeOf(T) <= @bitSizeOf(c_longlong));
     const N, const error_tag, const decode =
         if (@typeInfo(T).int.signedness == .signed)
-        .{
-            c_longlong,
-            error.decoding_signed_integer,
-            ei.ei_decode_longlong,
-        }
-    else
-        .{
-            c_ulonglong,
-            error.decoding_unsigned_integer,
-            ei.ei_decode_ulonglong,
-        };
+            .{
+                c_longlong,
+                error.decoding_signed_integer,
+                ei.ei_decode_longlong,
+            }
+        else
+            .{
+                c_ulonglong,
+                error.decoding_unsigned_integer,
+                ei.ei_decode_ulonglong,
+            };
 
     var n: N = undefined;
     try erl.validate(error_tag, decode(self.buf.buff, self.index, &n));
@@ -474,7 +474,7 @@ test parse_union {
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
     const type_info = @typeInfo(T).pointer;
     // TODO: figure out a sensible way to handle non-slices
-    comptime assert(type_info.size == .@"slice");
+    comptime assert(type_info.size == .slice);
 
     var size: c_int = 0;
     try erl.validate(

@@ -23,7 +23,7 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
     const info = @typeInfo(Data).pointer;
     switch (info.size) {
         .many, .c => @compileError("unsupported pointer size"),
-        .@"slice" => {
+        .slice => {
             try erl.validate(
                 error.could_not_encode_list_head,
                 ei.ei_x_encode_list_header(buf, @bitCast(data.len)),
