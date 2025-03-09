@@ -1,8 +1,9 @@
 .{
-    .name = "zerl",
+    .name = .zerl,
+    .fingerprint = 0x32d7a028f67a67f7,
     .version = "0.1.0",
 
-    .minimum_zig_version = "0.13.0",
+    .minimum_zig_version = "0.14.0",
 
     .dependencies = .{
         // Technically, we depend on erl_interface from Erlang/OTP.
