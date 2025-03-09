@@ -104,9 +104,7 @@ fn parse_tuple(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_tuple {
-    // We need the comptime field here in 0.13.0 because of a bug.
-    // Problem is fixed in zig master.
-    const Point = struct { comptime enum { point } = .point, i32, i32 };
+    const Point = struct { enum { point }, i32, i32 };
     const point: Point = .{ .point, 413, 612 };
 
     var buf: ei.ei_x_buff = undefined;
