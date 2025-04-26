@@ -58,14 +58,19 @@ const Reply = union(enum) {
 
 const deck: [52]Card = blk: {
     // This just builds an array containing one of each card
-    var cards: [4][13]Card = undefined;
-    for (@typeInfo(Suit).@"enum".fields, 0..) |suit_field, suit_index| {
-        const suit: Suit = @enumFromInt(suit_field.value);
-        for (@typeInfo(Value).@"enum".fields, 0..) |value, value_index| {
-            cards[suit_index][value_index] = .{ .card, @enumFromInt(value.value), suit };
+    var cards: [52]Card = undefined;
+    for (std.enums.values(Suit)) |suit| {
+        for (std.enums.values(Value)) |value| {
+            cards[
+                @as(usize, @intFromEnum(suit)) * 13 + @intFromEnum(value)
+            ] = .{
+                .card,
+                value,
+                suit,
+            };
         }
     }
-    break :blk @bitCast(cards);
+    break :blk cards;
 };
 
 pub fn main() !void {
