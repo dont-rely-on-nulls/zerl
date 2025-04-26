@@ -8,7 +8,7 @@
 
 This is a library for communicating with the BEAM from Zig. It is a wrapper
 around ~erl_interface~, which is provided with Erlang, and currently targets Zig version
-~0.13.0~.
+~0.14.0~.
 
 Note that ~erl_interface~ is not currently packaged for Zig, so users of Zerl will need
 to provide the dependency themselves.
@@ -21,7 +21,10 @@ between Zig and Erlang.
 *** 0.1 [1/1]
 - [X] Add unit tests for the decoder and encoder.
 
-*** 0.2 [0/1]
+*** 0.2 [1/1]
+- [X] Update to Zig 0.14.0.
+
+*** 0.3 [0/1]
 - [ ] Allow parsing tagged tuples with multiple items from Erlang into Zig tagged unions.
 
 *** Before 1.0 [0/3]

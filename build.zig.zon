@@ -1,7 +1,7 @@
 .{
     .name = .zerl,
     .fingerprint = 0x32d7a028f67a67f7,
-    .version = "0.1.0",
+    .version = "0.2.0",
 
     .minimum_zig_version = "0.14.0",
 
