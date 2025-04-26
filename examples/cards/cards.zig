@@ -57,20 +57,19 @@ const Reply = union(enum) {
 };
 
 const deck: [52]Card = blk: {
-    // This just builds an array containing one of each card
-    var cards: [52]Card = undefined;
+    var cards: [4][13]Card = undefined;
     for (std.enums.values(Suit)) |suit| {
         for (std.enums.values(Value)) |value| {
-            cards[
-                @as(usize, @intFromEnum(suit)) * 13 + @intFromEnum(value)
-            ] = .{
+            cards[@intFromEnum(suit)][@intFromEnum(value)] = .{
                 .card,
                 value,
                 suit,
             };
         }
     }
-    break :blk cards;
+    // workaround for https://github.com/ziglang/zig/issues/23673
+    const ret: *[52]Card = @ptrCast(&cards);
+    break :blk ret.*;
 };
 
 pub fn main() !void {
