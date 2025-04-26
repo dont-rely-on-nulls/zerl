@@ -24,9 +24,8 @@ const Value = enum {
     ace,
 };
 
-const Card_Tag = enum { card };
 const Card = struct {
-    Card_Tag,
+    enum { card },
     Value,
     Suit,
 };
@@ -39,8 +38,6 @@ const Message = union(enum) {
     shuffle: []const Card,
     bye: void,
 };
-
-const Message_Tag = @typeInfo(Message).@"union".tag_type.?;
 
 const Dealer_Error = enum {
     unknown_message,
