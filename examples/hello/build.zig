@@ -4,11 +4,15 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const client = b.addExecutable(.{
-        .name = "hello",
+    const root_module = b.createModule(.{
         .root_source_file = b.path("hello.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const client = b.addExecutable(.{
+        .name = "hello",
+        .root_module = root_module,
     });
     b.installArtifact(client);
 
@@ -16,7 +20,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     })) |zerl| {
-        client.root_module.addImport("zerl", zerl.module("zerl"));
+        root_module.addImport("zerl", zerl.module("zerl"));
     }
 
     if (b.lazyImport(@This(), "zerl")) |zerl_build| {

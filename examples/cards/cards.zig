@@ -24,9 +24,8 @@ const Value = enum {
     ace,
 };
 
-const Card_Tag = enum { card };
 const Card = struct {
-    Card_Tag,
+    enum { card },
     Value,
     Suit,
 };
@@ -39,8 +38,6 @@ const Message = union(enum) {
     shuffle: []const Card,
     bye: void,
 };
-
-const Message_Tag = @typeInfo(Message).Union.tag_type.?;
 
 const Dealer_Error = enum {
     unknown_message,
@@ -57,15 +54,19 @@ const Reply = union(enum) {
 };
 
 const deck: [52]Card = blk: {
-    // This just builds an array containing one of each card
     var cards: [4][13]Card = undefined;
-    for (@typeInfo(Suit).Enum.fields, 0..) |suit_field, suit_index| {
-        const suit: Suit = @enumFromInt(suit_field.value);
-        for (@typeInfo(Value).Enum.fields, 0..) |value, value_index| {
-            cards[suit_index][value_index] = .{ .card, @enumFromInt(value.value), suit };
+    for (std.enums.values(Suit)) |suit| {
+        for (std.enums.values(Value)) |value| {
+            cards[@intFromEnum(suit)][@intFromEnum(value)] = .{
+                .card,
+                value,
+                suit,
+            };
         }
     }
-    break :blk @bitCast(cards);
+    // workaround for https://github.com/ziglang/zig/issues/23673
+    const ret: *[52]Card = @ptrCast(&cards);
+    break :blk ret.*;
 };
 
 pub fn main() !void {

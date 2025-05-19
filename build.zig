@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) !void {
         .link_libc = true,
     });
 
-    const ei_options = .{
+    const ei_options: std.Build.Module.LinkSystemLibraryOptions = .{
         .needed = true,
         .preferred_link_mode = .static,
     };
@@ -63,9 +63,11 @@ pub fn build(b: *std.Build) !void {
     zerl.linkSystemLibrary("ei", ei_options);
 
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = root_file,
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = root_file,
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     lib_unit_tests.linkLibC();
     lib_unit_tests.linkSystemLibrary2("ei", ei_options);
