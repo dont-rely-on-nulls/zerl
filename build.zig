@@ -62,13 +62,7 @@ pub fn build(b: *std.Build) !void {
     // TODO: package erlang's C libs
     zerl.linkSystemLibrary("ei", ei_options);
 
-    const lib_unit_tests = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = root_file,
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
+    const lib_unit_tests = b.addTest(.{ .root_module = zerl });
     lib_unit_tests.linkLibC();
     lib_unit_tests.linkSystemLibrary2("ei", ei_options);
 
