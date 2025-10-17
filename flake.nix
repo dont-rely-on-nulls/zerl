@@ -44,7 +44,7 @@
         version = "0.0.0";
 
         # Erlang
-        erlangLatest = pkgs.erlang_27;
+        erlangLatest = pkgs.erlang;
         erlangLibs = getErlangLibs erlangLatest;
 
         # Zig
@@ -159,7 +159,7 @@
                   {
                     packages =
                       with pkgs;
-                      []
+                      [ erlang-language-platform watchman ]
                       ++ lib.optionals stdenv.isLinux (linuxPkgs)
                       ++ lib.optionals stdenv.isDarwin darwinPkgs;
 
