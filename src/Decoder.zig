@@ -36,6 +36,7 @@ pub const Error = std.mem.Allocator.Error || error{
     decoding_list_in_array_2,
     decoding_boolean,
     invalid_pid,
+    not_a_union,
 };
 
 buf: *ei.ei_x_buff,
@@ -386,10 +387,65 @@ test parse_enum {
     try testing.expectEqual(Suit.spades, decoder.parse_enum(Suit));
 }
 
+fn MaybeEnum(
+    comptime max_value: comptime_int,
+    comptime fields: []const std.builtin.Type.EnumField,
+) type {
+    return if (fields.len == 0) void else @Type(.{
+        .@"enum" = .{
+            .tag_type = std.math.IntFittingRange(0, max_value),
+            .fields = fields,
+            .decls = &.{},
+            .is_exhaustive = true,
+        },
+    });
+}
+
 fn parse_union(self: Decoder, comptime T: type) Error!T {
     const Tag = @typeInfo(T).@"union".tag_type.?;
-    const fields = @typeInfo(T).@"union".fields;
-    comptime assert(fields.len != 0);
+
+    const Atom: type, const Tuple_Tag: type = comptime Tags: {
+        const fields = @typeInfo(T).@"union".fields;
+        assert(fields.len != 0);
+
+        const Field = std.builtin.Type.EnumField;
+
+        var void_fields: [fields.len]Field = undefined;
+        var void_field_count = 0;
+        var void_max_value = 0;
+
+        var non_void_fields: [fields.len]Field = undefined;
+        var non_void_field_count = 0;
+        var non_void_max_value = 0;
+
+        for (fields) |field| {
+            const value = @intFromEnum(@field(Tag, field.name));
+            const enum_field: Field = .{
+                .name = field.name,
+                .value = value,
+            };
+
+            if (field.type == void) {
+                void_max_value = @max(void_max_value, value);
+                void_fields[void_field_count] = enum_field;
+                void_field_count += 1;
+            } else {
+                non_void_max_value = @max(non_void_max_value, value);
+                non_void_fields[non_void_field_count] = enum_field;
+                non_void_field_count += 1;
+            }
+        }
+        break :Tags .{
+            MaybeEnum(
+                void_max_value,
+                void_fields[0..void_field_count],
+            ),
+            MaybeEnum(
+                non_void_max_value,
+                non_void_fields[0..non_void_field_count],
+            ),
+        };
+    };
 
     var arity: c_int = 0;
     var type_tag: c_int = 0;
@@ -398,47 +454,47 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
         error.could_not_get_type,
         ei.ei_get_type(self.buf.buff, self.index, &type_tag, &_v),
     );
-    if (type_tag == ei.ERL_ATOM_EXT) {
-        switch (try self.parse_enum(Tag)) {
-            inline else => |tag| {
-                // TODO: eliminate this loop
-                inline for (fields) |field| {
-                    if (field.type == void and comptime std.mem.eql(
-                        u8,
-                        field.name,
-                        @tagName(tag),
-                    )) {
-                        return tag;
-                    }
-                }
-                return error.invalid_union_tag;
-            },
-        }
-    } else {
-        try erl.validate(
-            error.decoding_tuple,
-            ei.ei_decode_tuple_header(self.buf.buff, self.index, &arity),
-        );
-        if (arity != 2) {
-            // TODO: https://github.com/dont-rely-on-nulls/zerl/issues/7
-            return error.wrong_arity_for_tuple;
-        }
-        switch (try self.parse_enum(Tag)) {
-            inline else => |tag| {
-                inline for (fields) |field| {
-                    if (field.type != void and comptime std.mem.eql(
-                        u8,
-                        field.name,
-                        @tagName(tag),
-                    )) {
-                        const tuple_value = try self.parse(field.type);
-                        return @unionInit(T, field.name, tuple_value);
-                    }
-                } else return error.failed_to_receive_payload;
-            },
-        }
+    switch (type_tag) {
+        ei.ERL_ATOM_EXT => {
+            if (Atom == void) return error.could_not_decode_enum;
+
+            const atom: Tag = @enumFromInt(@intFromEnum(
+                try self.parse_enum(Atom),
+            ));
+            return switch (atom) {
+                inline else => |tag| if (@FieldType(T, @tagName(tag)) == void)
+                    tag
+                else
+                    unreachable,
+            };
+        },
+        ei.ERL_SMALL_TUPLE_EXT, ei.ERL_LARGE_TUPLE_EXT => {
+            if (Tuple_Tag == void) return error.could_not_decode_enum;
+
+            try erl.validate(
+                error.decoding_tuple,
+                ei.ei_decode_tuple_header(self.buf.buff, self.index, &arity),
+            );
+            if (arity != 2) {
+                // TODO: https://github.com/dont-rely-on-nulls/zerl/issues/7
+                return error.wrong_arity_for_tuple;
+            }
+            const tuple_tag: Tag = @enumFromInt(@intFromEnum(
+                try self.parse_enum(Tuple_Tag),
+            ));
+            switch (tuple_tag) {
+                inline else => |tag| {
+                    const Payload = @FieldType(T, @tagName(tag));
+                    if (Payload == void) unreachable;
+
+                    const tuple_value = try self.parse(Payload);
+                    return @unionInit(T, @tagName(tag), tuple_value);
+                },
+            }
+        },
+        else => return error.not_a_union,
     }
-    return error.unknown_tuple_tag;
+    comptime unreachable;
 }
 
 test parse_union {
@@ -451,14 +507,19 @@ test parse_union {
     const circle: Shape = .{ .circle = 4 };
     const square: Shape = .{ .square = 4 };
 
+    const Animal = union(enum) {
+        species: enum { cat, dog },
+    };
+
+    const catdog: union(enum) {
+        species: enum { catdog },
+    } = .{ .species = .catdog };
+
     var buf: ei.ei_x_buff = undefined;
     try erl.validate(error.create_new_decode_buff, ei.ei_x_new(&buf));
     defer _ = ei.ei_x_free(&buf);
 
     var index: c_int = 0;
-    try erl.encoder.write_any(&buf, circle);
-    try erl.encoder.write_any(&buf, square);
-    try erl.encoder.write_any(&buf, Shape.point);
 
     const decoder: Decoder = .{
         .buf = &buf,
@@ -466,9 +527,20 @@ test parse_union {
         .allocator = testing.failing_allocator,
     };
 
+    try erl.encoder.write_any(&buf, circle);
     try testing.expectEqual(circle, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, square);
     try testing.expectEqual(square, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, Shape.point);
     try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, .not_a_shape);
+    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, catdog);
+    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Animal));
 }
 
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
