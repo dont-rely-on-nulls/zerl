@@ -44,11 +44,11 @@
         version = "0.0.0";
 
         # Erlang
-        erlangLatest = pkgs.erlang_27;
+        erlangLatest = pkgs.erlang;
         erlangLibs = getErlangLibs erlangLatest;
 
         # Zig
-        zigLatest = pkgs.zig;
+        zigVersion = pkgs.zig_0_15;
         packageName = "zerl";
         packageVersion = "0.0.0";
 
@@ -146,7 +146,7 @@
               buildInputs = with pkgs; [
                 erlangLatest
                 rebar3
-                zigLatest
+                zigVersion
               ];
             };
 
@@ -159,7 +159,7 @@
                   {
                     packages =
                       with pkgs;
-                      []
+                      [ erlang-language-platform watchman ]
                       ++ lib.optionals stdenv.isLinux (linuxPkgs)
                       ++ lib.optionals stdenv.isDarwin darwinPkgs;
 
@@ -170,7 +170,7 @@
 
                     languages.zig = {
                       enable = true;
-                      package = zigLatest;
+                      package = zigVersion;
                     };
 
                     env = mkEnvVars pkgs erlangLatest erlangLibs;

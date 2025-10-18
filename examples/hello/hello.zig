@@ -10,7 +10,10 @@ pub fn main() !void {
     defer arena_state.deinit();
 
     const arena = arena_state.allocator();
-    const stderr = std.io.getStdErr().writer();
+
+    var buf: [1024]u8 = undefined;
+    var stderr_file = std.fs.File.stderr().writer(&buf);
+    const stderr = &stderr_file.interface;
 
     try stderr.print("Running hello example...\n", .{});
 
@@ -27,4 +30,5 @@ pub fn main() !void {
     const reply = try node.receive(Reply, arena);
     try stderr.print("\nGot back: {s}\n", .{reply.ok});
     try node.send("echo", .die);
+    try stderr.flush();
 }
