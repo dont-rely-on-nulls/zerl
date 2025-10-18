@@ -564,6 +564,15 @@ test parse_union {
         .allocator = testing.failing_allocator,
     };
 
+    try erl.encoder.write_any(&buf, circle);
+    try testing.expectEqual(circle, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, square);
+    try testing.expectEqual(square, decoder.parse_union(Shape));
+
+    try erl.encoder.write_any(&buf, Shape.point);
+    try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
+
     try erl.encoder.write_any(&buf, .not_a_shape);
     try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Shape));
     try erl.validate(error.skip_term, ei.ei_skip_term(buf.buff, &index));
@@ -602,15 +611,6 @@ test parse_union {
 
     try erl.encoder.write_any(&buf, tuple);
     try testing.expectEqual(flat_tuple, decoder.parse_tuple(Flat_Point));
-
-    try erl.encoder.write_any(&buf, circle);
-    try testing.expectEqual(circle, decoder.parse_union(Shape));
-
-    try erl.encoder.write_any(&buf, square);
-    try testing.expectEqual(square, decoder.parse_union(Shape));
-
-    try erl.encoder.write_any(&buf, Shape.point);
-    try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
 }
 
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
