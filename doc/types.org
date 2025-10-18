@@ -62,17 +62,21 @@ interact with binaries.
 
 ** Enums
 
-Enums are mapped to atoms because they're used in similar ways.
+Enums are mapped to atoms because fulfill similar purposes.
 
 ** Tuples and Tagged Unions
 
-Currently, Zig tuples can receive arbitrary Erlang tuples, while tagged unions
-can only receive tuples of length 2. This is not very convenient when dealing
-with Erlang records (which desugar to tagged tuples), but we do have plans to
-improve this area.
+Zig tuples can map to arbitrary Erlang tuples.
 
-Note that tagged union members with a payload of ~void~ are mapped to atoms
-instead, because it is not idiomatic in Erlang to pass around Tuples of one item.
+Tagged unions have a different mapping depending on the payload type:
+
+- Union members with a tuple or array payload are mapped to tuples of length
+  N + 1, where N is the payload size. The contents are an atom for the union
+  tag followed by the array or tuple elements in order.
+- Union members with a payload of ~void~ are mapped to atoms, because it is
+  not idiomatic in Erlang to pass around single-element tuples.
+- All other members are mapped to tuples of length 2, where the first element
+  is an atom for the union tag and the second element is the payload.
 
 There are no plans to support Zig untagged unions.
 
