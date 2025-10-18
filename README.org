@@ -24,13 +24,16 @@ between Zig and Erlang.
 *** 0.2 [1/1]
 - [X] Update to Zig 0.14.0.
 
-*** 0.3 [0/1]
-- [ ] Allow parsing tagged tuples with multiple items from Erlang into Zig tagged unions.
+*** 0.3 [1/1]
+- [X] Allow parsing tagged tuples with multiple items from Erlang into Zig tagged unions.
 
 *** Before 1.0 [0/3]
 - [ ] Expose the timeout version of the networking functions from ~erl_interface~.
 - [ ] Remove all hidden allocations from the library.
 - [ ] Either package ~erl_interface~ and add it to ~build.zig.zon~, or drop the dependency entirely.
+
+*** The Dream [0/1]
+- [ ] Drop the erl_interface dependency.
 
 ** Examples
 

@@ -24,11 +24,7 @@ const Value = enum {
     ace,
 };
 
-const Card = struct {
-    enum { card },
-    Value,
-    Suit,
-};
+const Card = union(enum) { card: struct { Value, Suit } };
 
 const Message = union(enum) {
     hello: *const zerl.ei.erlang_pid,
@@ -37,6 +33,21 @@ const Message = union(enum) {
     double: f64,
     shuffle: []const Card,
     bye: void,
+
+    pub fn format(self: Message, writer: *std.Io.Writer) !void {
+        // Forcibly print slice contents.
+        // Otherwise, we wouldn't be able to tell what the cards actually are.
+        switch (self) {
+            .shuffle => |cards| {
+                try writer.print(".{{ .shuffle = .{{", .{});
+                for (cards) |card| {
+                    try writer.print("{}, ", .{card});
+                }
+                try writer.print("}} }}", .{});
+            },
+            else => try writer.print("{any}", .{self}),
+        }
+    }
 };
 
 const Dealer_Error = enum {
@@ -51,20 +62,33 @@ const Reply = union(enum) {
     shuffled: []Card,
     ok: void,
     @"error": Dealer_Error,
+
+    pub fn format(self: Reply, writer: *std.Io.Writer) !void {
+        // Forcibly print slice contents.
+        // Otherwise, we wouldn't be able to tell what the cards actually are.
+        switch (self) {
+            .shuffled => |cards| {
+                try writer.print(".{{ .shuffled = .{{ ", .{});
+                for (cards) |card| {
+                    try writer.print("{}, ", .{card});
+                }
+                try writer.print("}} }}", .{});
+            },
+            else => try writer.print("{any}", .{self}),
+        }
+    }
 };
 
 const deck: [52]Card = blk: {
     var cards: [4][13]Card = undefined;
     for (std.enums.values(Suit)) |suit| {
         for (std.enums.values(Value)) |value| {
-            cards[@intFromEnum(suit)][@intFromEnum(value)] = .{
-                .card,
+            cards[@intFromEnum(suit)][@intFromEnum(value)] = .{ .card = .{
                 value,
                 suit,
-            };
+            } };
         }
     }
-    // workaround for https://github.com/ziglang/zig/issues/23673
     const ret: *[52]Card = @ptrCast(&cards);
     break :blk ret.*;
 };
@@ -99,10 +123,10 @@ pub fn main() !void {
         .bye,
     };
     for (messages) |message| {
-        try stderr.print("\nMessage: {}\n", .{message});
+        try stderr.print("\nMessage: {f}\n", .{message});
         try node.send("dealer", message);
         const reply = try node.receive(Reply, arena);
-        try stderr.print("\nReply: {}\n", .{reply});
+        try stderr.print("\nReply: {f}\n", .{reply});
     }
     try stderr.flush();
 }
