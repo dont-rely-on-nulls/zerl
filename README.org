@@ -32,9 +32,6 @@ between Zig and Erlang.
 - [ ] Remove all hidden allocations from the library.
 - [ ] Either package ~erl_interface~ and add it to ~build.zig.zon~, or drop the dependency entirely.
 
-*** The Dream [0/1]
-- [ ] Drop the erl_interface dependency.
-
 ** Examples
 
 See the [[./examples]] directory for some code examples. If you are looking for a
