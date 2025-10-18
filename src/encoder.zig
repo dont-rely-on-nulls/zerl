@@ -4,6 +4,8 @@ const erl = @import("erlang.zig");
 const ei = erl.ei;
 const assert = std.debug.assert;
 
+const union_case = @import("Decoder.zig").union_case;
+
 pub const Error = error{
     could_not_encode_pid,
     could_not_encode_binary,
@@ -52,13 +54,37 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                 ),
                 .@"union" => |union_info| switch (@as(union_info.tag_type.?, data.*)) {
                     inline else => |tag| {
-                        inline for (union_info.fields) |field| {
-                            if (comptime std.mem.eql(
-                                u8,
-                                field.name,
-                                @tagName(tag),
-                            )) {
-                                const send_tuple: bool = field.type != void;
+                        const Field = @FieldType(Child, @tagName(tag));
+
+                        switch (union_case(Field)) {
+                            .array => {
+                                const payload = &@field(data, @tagName(tag));
+                                try erl.validate(
+                                    error.could_not_encode_tuple,
+                                    ei.ei_x_encode_tuple_header(buf, payload.len + 1),
+                                );
+                                try write_any(buf, tag);
+                                for (payload) |*elem| {
+                                    try write_any(buf, elem);
+                                }
+                            },
+                            .tuple => {
+                                const payload = &@field(data, @tagName(tag));
+                                const payload_len =
+                                    @typeInfo(Field).@"struct".fields.len;
+
+                                try erl.validate(
+                                    error.could_not_encode_tuple,
+                                    ei.ei_x_encode_tuple_header(buf, payload_len + 1),
+                                );
+                                try write_any(buf, tag);
+                                inline for (payload) |*elem| {
+                                    try write_any(buf, elem);
+                                }
+                            },
+                            .other => {
+                                const payload = @field(data, @tagName(tag));
+                                const send_tuple: bool = Field != void;
                                 if (send_tuple) {
                                     try erl.validate(
                                         error.could_not_encode_tuple,
@@ -66,8 +92,8 @@ fn write_pointer(buf: *ei.ei_x_buff, data: anytype) Error!void {
                                     );
                                 }
                                 try write_any(buf, tag);
-                                if (send_tuple) try write_any(buf, @field(data, @tagName(tag)));
-                            }
+                                if (send_tuple) try write_any(buf, payload);
+                            },
                         }
                     },
                 },

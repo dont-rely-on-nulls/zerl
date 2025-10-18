@@ -401,6 +401,16 @@ fn MaybeEnum(
     });
 }
 
+pub inline fn union_case(comptime T: type) enum { array, tuple, other } {
+    return case: switch (@typeInfo(T)) {
+        .array => .array,
+        .@"struct" => |Struct| {
+            break :case if (Struct.is_tuple) .tuple else .other;
+        },
+        else => .other,
+    };
+}
+
 fn parse_union(self: Decoder, comptime T: type) Error!T {
     const Tag = @typeInfo(T).@"union".tag_type.?;
 
@@ -446,6 +456,8 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
             ),
         };
     };
+    const previous_index = self.index.*;
+    errdefer self.index.* = previous_index;
 
     var arity: c_int = 0;
     var type_tag: c_int = 0;
@@ -454,6 +466,7 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
         error.could_not_get_type,
         ei.ei_get_type(self.buf.buff, self.index, &type_tag, &_v),
     );
+
     switch (type_tag) {
         ei.ERL_ATOM_EXT => {
             if (Atom == void) return error.could_not_decode_enum;
@@ -475,10 +488,6 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
                 error.decoding_tuple,
                 ei.ei_decode_tuple_header(self.buf.buff, self.index, &arity),
             );
-            if (arity != 2) {
-                // TODO: https://github.com/dont-rely-on-nulls/zerl/issues/7
-                return error.wrong_arity_for_tuple;
-            }
             const tuple_tag: Tag = @enumFromInt(@intFromEnum(
                 try self.parse_enum(Tuple_Tag),
             ));
@@ -487,8 +496,36 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
                     const Payload = @FieldType(T, @tagName(tag));
                     if (Payload == void) unreachable;
 
-                    const tuple_value = try self.parse(Payload);
-                    return @unionInit(T, @tagName(tag), tuple_value);
+                    var payload: Payload = undefined;
+
+                    switch (union_case(Payload)) {
+                        .array => {
+                            if (arity != payload.len + 1) {
+                                return error.wrong_arity_for_tuple;
+                            }
+                            for (&payload) |*elem| {
+                                elem.* = try self.parse(@TypeOf(elem.*));
+                            }
+                        },
+                        .tuple => {
+                            const tuple_len =
+                                @typeInfo(Payload).@"struct".fields.len;
+
+                            if (arity != tuple_len + 1) {
+                                return error.wrong_arity_for_tuple;
+                            }
+                            inline for (&payload) |*elem| {
+                                elem.* = try self.parse(@TypeOf(elem.*));
+                            }
+                        },
+                        .other => {
+                            if (arity != 2) {
+                                return error.wrong_arity_for_tuple;
+                            }
+                            payload = try self.parse(Payload);
+                        },
+                    }
+                    return @unionInit(T, @tagName(tag), payload);
                 },
             }
         },
@@ -527,6 +564,45 @@ test parse_union {
         .allocator = testing.failing_allocator,
     };
 
+    try erl.encoder.write_any(&buf, .not_a_shape);
+    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Shape));
+    try erl.validate(error.skip_term, ei.ei_skip_term(buf.buff, &index));
+
+    try erl.encoder.write_any(&buf, catdog);
+    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Animal));
+    try erl.validate(error.skip_term, ei.ei_skip_term(buf.buff, &index));
+
+    const Point = union(enum) {
+        array: [2]i32,
+        tuple: struct { i32, i32 },
+    };
+
+    const array: Point = .{ .array = .{ 413, 612 } };
+    const tuple: Point = .{ .tuple = .{ 413, 612 } };
+
+    const Flat_Point = struct { enum { array, tuple }, i32, i32 };
+
+    const flat_array: Flat_Point = .{ .array, 413, 612 };
+    const flat_tuple: Flat_Point = .{ .tuple, 413, 612 };
+
+    try erl.encoder.write_any(&buf, array);
+    try testing.expectEqual(array, decoder.parse_union(Point));
+
+    try erl.encoder.write_any(&buf, tuple);
+    try testing.expectEqual(tuple, decoder.parse_union(Point));
+
+    try erl.encoder.write_any(&buf, flat_array);
+    try testing.expectEqual(array, decoder.parse_union(Point));
+
+    try erl.encoder.write_any(&buf, flat_tuple);
+    try testing.expectEqual(tuple, decoder.parse_union(Point));
+
+    try erl.encoder.write_any(&buf, array);
+    try testing.expectEqual(flat_array, decoder.parse_tuple(Flat_Point));
+
+    try erl.encoder.write_any(&buf, tuple);
+    try testing.expectEqual(flat_tuple, decoder.parse_tuple(Flat_Point));
+
     try erl.encoder.write_any(&buf, circle);
     try testing.expectEqual(circle, decoder.parse_union(Shape));
 
@@ -535,12 +611,6 @@ test parse_union {
 
     try erl.encoder.write_any(&buf, Shape.point);
     try testing.expectEqual(Shape.point, decoder.parse_union(Shape));
-
-    try erl.encoder.write_any(&buf, .not_a_shape);
-    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Shape));
-
-    try erl.encoder.write_any(&buf, catdog);
-    try testing.expectEqual(error.could_not_decode_enum, decoder.parse_union(Animal));
 }
 
 fn parse_pointer(self: Decoder, comptime T: type) Error!T {
