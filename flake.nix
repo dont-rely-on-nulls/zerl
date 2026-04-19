@@ -48,7 +48,7 @@
         erlangLibs = getErlangLibs erlangLatest;
 
         # Zig
-        zigVersion = pkgs.zig_0_15;
+        zigVersion = pkgs.zig_0_16;
         packageName = "zerl";
         packageVersion = "0.0.0";
 

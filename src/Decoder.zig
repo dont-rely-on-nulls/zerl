@@ -105,7 +105,7 @@ fn parse_tuple(self: Decoder, comptime T: type) Error!T {
 }
 
 test parse_tuple {
-    const Point = struct { enum { point }, i32, i32 };
+    const Point = struct { comptime enum { point } = .point, i32, i32 };
     const point: Point = .{ .point, 413, 612 };
 
     var buf: ei.ei_x_buff = undefined;
@@ -391,14 +391,18 @@ fn MaybeEnum(
     comptime max_value: comptime_int,
     comptime fields: []const std.builtin.Type.EnumField,
 ) type {
-    return if (fields.len == 0) void else @Type(.{
-        .@"enum" = .{
-            .tag_type = std.math.IntFittingRange(0, max_value),
-            .fields = fields,
-            .decls = &.{},
-            .is_exhaustive = true,
-        },
-    });
+    comptime {
+        if (fields.len == 0) return void;
+        const TagInt =
+            std.math.IntFittingRange(0, max_value);
+        var names: [fields.len][]const u8 = undefined;
+        var values: [names.len]TagInt = undefined;
+        for (fields, 0..) |field, idx| {
+            names[idx] = field.name;
+            values[idx] = field.value;
+        }
+        return @Enum(TagInt, .exhaustive, &names, &values);
+    }
 }
 
 pub inline fn union_case(comptime T: type) enum { array, tuple, other } {
@@ -508,10 +512,7 @@ fn parse_union(self: Decoder, comptime T: type) Error!T {
                             }
                         },
                         .tuple => {
-                            const tuple_len =
-                                @typeInfo(Payload).@"struct".fields.len;
-
-                            if (arity != tuple_len + 1) {
+                            if (arity != payload.len + 1) {
                                 return error.wrong_arity_for_tuple;
                             }
                             inline for (&payload) |*elem| {
