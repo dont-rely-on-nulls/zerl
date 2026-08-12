@@ -54,3 +54,4 @@ flycheck_*.el
 
 # Extra
 .envrc
+manifest.scm

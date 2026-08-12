@@ -24,10 +24,10 @@ pub fn build(b: *std.Build) !void {
     }
 
     if (b.lazyImport(@This(), "zerl")) |zerl_build| {
-        if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
+        if (b.graph.environ_map.get("LIBRARY_PATH")) |lib_path| {
             try zerl_build.add_erlang_paths(b, lib_path);
         }
-        if (std.posix.getenv("PATH")) |path| {
+        if (b.graph.environ_map.get("PATH")) |path| {
             try zerl_build.add_erlang_paths(b, path);
         }
     }

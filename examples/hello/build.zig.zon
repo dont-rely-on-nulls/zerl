@@ -2,7 +2,7 @@
     .name = .zerl_hello_example,
     .fingerprint = 0x9c6739caed6e6ae4,
     .version = "0.0.0",
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zerl = .{
             .path = "../../",

@@ -18,16 +18,16 @@ pub const Node = struct {
     fd: i32,
     node_name: [name_length:0]u8,
 
-    pub fn init(cookie: [:0]const u8) !Node {
+    pub fn init(io: std.Io, cookie: [:0]const u8) !Node {
         var src_node_name: [name_length / 2]u8 = undefined;
-        std.crypto.random.bytes(&src_node_name);
+        io.random(&src_node_name);
         var tempNode: Node = .{
             .c_node = undefined,
             .fd = undefined,
             .node_name = std.fmt.bytesToHex(src_node_name, .lower) ++ [0:0]u8{},
         };
 
-        const creation = std.time.timestamp() + 1;
+        const creation = std.Io.Clock.now(.boot, io).toMicroseconds();
         const creation_u: u64 = @bitCast(creation);
         const check = ei.ei_connect_init(
             &tempNode.c_node,

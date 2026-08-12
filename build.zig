@@ -1,7 +1,8 @@
 const std = @import("std");
 
 pub fn add_erlang_paths(b: *std.Build, root_paths: []const u8) !void {
-    const cwd = std.fs.cwd();
+    const io = b.graph.io;
+    const cwd = std.Io.Dir.cwd();
     var it = std.mem.tokenizeScalar(u8, root_paths, ':');
     while (it.next()) |maybe_dir_path| {
         if (std.mem.indexOf(u8, maybe_dir_path, "\x00")) |_| continue;
@@ -13,21 +14,23 @@ pub fn add_erlang_paths(b: *std.Build, root_paths: []const u8) !void {
         else
             maybe_dir_path;
 
-        var dir = cwd.openDir(dir_path, .{}) catch continue;
-        defer dir.close();
+        var dir = cwd.openDir(io, dir_path, .{}) catch continue;
+        defer dir.close(io);
 
         var erlang = dir.openDir(
+            io,
             "erlang/lib",
             .{ .iterate = true },
         ) catch continue;
-        defer erlang.close();
+        defer erlang.close(io);
 
         var erlang_it = erlang.iterate();
-        while (try erlang_it.next()) |erlang_lib| {
+        while (try erlang_it.next(io)) |erlang_lib| {
             if (erlang_lib.kind == .directory) {
-                const prefix = try erlang.realpathAlloc(
-                    b.allocator,
+                const prefix = try erlang.realPathFileAlloc(
+                    io,
                     erlang_lib.name,
+                    b.allocator,
                 );
                 b.addSearchPrefix(prefix);
             }
@@ -39,10 +42,10 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    if (std.posix.getenv("LIBRARY_PATH")) |lib_path| {
+    if (b.graph.environ_map.get("LIBRARY_PATH")) |lib_path| {
         try add_erlang_paths(b, lib_path);
     }
-    if (std.posix.getenv("PATH")) |path| {
+    if (b.graph.environ_map.get("PATH")) |path| {
         try add_erlang_paths(b, path);
     }
 
@@ -63,8 +66,6 @@ pub fn build(b: *std.Build) !void {
     zerl.linkSystemLibrary("ei", ei_options);
 
     const lib_unit_tests = b.addTest(.{ .root_module = zerl });
-    lib_unit_tests.linkLibC();
-    lib_unit_tests.linkSystemLibrary2("ei", ei_options);
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
